@@ -1,0 +1,7 @@
+<h1>generator home</h1>
+<%= form_tag(json_gen_path(:format => "json"), method: "get") do %>
+  Github clone URL:
+  <%= text_field_tag(:github_repo) %>
+  <br>
+  <%= submit_tag("Submit", :name => nil) %>
+<% end %>
