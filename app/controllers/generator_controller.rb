@@ -52,6 +52,10 @@ class GeneratorController < ApplicationController
                                    "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh", "\n",
                                    "cd /home/ubuntu", "\n",
                                    "git clone #{clone_url}", "\n",
+                                   "cd #{project_name}", "\n",
+                                   "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
+                                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n",
+                                   "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n",
                                    "echo \"
 #user  nobody;
 worker_processes  1;
@@ -82,14 +86,14 @@ http {
     keepalive_timeout  65;
 
     server {
-        listen 80;
+        #listen 80;
         server_name  localhost;
-        passenger_enabled on;
-        root /home/ubuntu/#{project_name}/public;
+        #passenger_enabled on;
+        #root /home/ubuntu/#{project_name}/public;
 
-        #location / {
-          # proxy_pass http://localhost:3000;
-        #}
+        location / {
+           proxy_pass http://localhost:3000;
+        }
 
 
     }
