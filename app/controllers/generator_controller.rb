@@ -32,7 +32,7 @@ class GeneratorController < ApplicationController
 
   private
   def cloudformation_template project_name, clone_url, keypair_name, instance_type="t2.micro", image_id="ami-9a562df2"
-    safe_name = project_name.gsub(/[^a-z0-9\s]/i, '') # remove punctuation
+    safe_name = (project_name + rand(99999999).hash.to_s).gsub(/[^a-z0-9\s]/i, '') # remove punctuation
     {
       "AWSTemplateFormatVersion" => "2010-09-09",
       
@@ -50,11 +50,55 @@ class GeneratorController < ApplicationController
                                    "#!/bin/bash -v\n",
                                    "export HOME=`pwd`" ,"\n",
                                    "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh", "\n",
+                                   "cd /home/ubuntu", "\n",
                                    "git clone #{clone_url}", "\n",
-                                   "cd #{project_name}", "\n",
-                                   "bundle install", "\n",
-                                   "rake db:migrate", "\n",
-                                   "bundle exec rails server -b 0.0.0.0 -d", "\n",
+                                   "echo \"
+#user  nobody;
+worker_processes  1;
+
+#error_log  logs/error.log;
+#error_log  logs/error.log  notice;
+#error_log  logs/error.log  info;
+
+#pid        logs/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    passenger_root /var/lib/gems/1.9.1/gems/passenger-4.0.59;
+    passenger_ruby /usr/bin/ruby1.9.1;
+
+    passenger_app_env development;
+
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen 80;
+        server_name  localhost;
+        passenger_enabled on;
+        root /home/ubuntu/#{project_name}/public;
+
+        #location / {
+          # proxy_pass http://localhost:3000;
+        #}
+
+
+    }
+
+
+
+}\" > temp_nginx.conf", "\n",
+                                   "sudo mv temp_nginx.conf /opt/nginx/conf/nginx.conf", "\n",
+                                   "sudo /opt/nginx/sbin/nginx", "\n",
                                    "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
                                    "\"Reason\" : \"Server is ready\",",
                                    "\"UniqueId\" : \"#{safe_name}ec2\",",
