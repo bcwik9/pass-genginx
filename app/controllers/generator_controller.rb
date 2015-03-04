@@ -31,6 +31,7 @@ class GeneratorController < ApplicationController
   end
 
   private
+
   def cloudformation_template project_name, clone_url, keypair_name, instance_type="t2.micro", image_id="ami-9a562df2"
     safe_name = (project_name + rand(99999999).hash.to_s).gsub(/[^a-z0-9\s]/i, '') # remove punctuation
     {
@@ -40,7 +41,6 @@ class GeneratorController < ApplicationController
         "#{safe_name}ec2" => {
           "Type" => "AWS::EC2::Instance",
           "Properties" => {
-            "KeyName" => keypair_name,
             "InstanceType"=> instance_type,
             "SecurityGroups" => [ { "Ref" => "#{safe_name}sg" } ],
             "ImageId" => image_id,
@@ -85,19 +85,7 @@ http {
 
     keepalive_timeout  65;
 
-    server {
-        #listen 80;
-        server_name  localhost;
-        #passenger_enabled on;
-        #root /home/ubuntu/#{project_name}/public;
-
-        location / {
-           proxy_pass http://localhost:3000;
-        }
-
-
-    }
-
+    #{get_nginx_server project_name, 80, 3000}    
 
 
 }\" > temp_nginx.conf", "\n",
@@ -140,18 +128,8 @@ http {
         "#{safe_name}sg" => {
           "Type" => "AWS::EC2::SecurityGroup",
           "Properties" => {
-            "GroupDescription" => "Enable Access to Rails application via port 80, 443, 3000 and SSH access via port 22",
+            "GroupDescription" => "Enable Access to Rails application via port 80 and 443",
             "SecurityGroupIngress" => [ {
-                                          "IpProtocol" => "tcp",
-                                          "FromPort" => "22",
-                                          "ToPort" => "22",
-                                          "CidrIp" => "0.0.0.0/0"
-                                        }, {
-                                          "IpProtocol" => "tcp",
-                                          "FromPort" => "3000",
-                                          "ToPort" => "3000",
-                                          "CidrIp" => "0.0.0.0/0"
-                                        }, {
                                           "IpProtocol" => "tcp",
                                           "FromPort" => "80",
                                           "ToPort" => "80",
@@ -198,7 +176,7 @@ http {
           "DependsOn" => "#{safe_name}ec2",
           "Properties" => {
             "Handle" => {"Ref" => "WaitForInstanceWaitHandle"},
-            "Timeout" => "600"
+            "Timeout" => "800"
           }
         }
       },
@@ -214,5 +192,20 @@ http {
         }
       }
     }.to_json
+  end
+
+  def get_nginx_server project_name, listen_port, forward_port
+    "server {
+        #listen #{listen_port};
+        server_name  localhost;
+        #passenger_enabled on;
+        #root /home/ubuntu/#{project_name}/public;
+
+        location / {
+           proxy_pass http://localhost:#{forward_port};
+        }
+
+
+    }"
   end
 end
