@@ -1,10 +1,11 @@
 <h1>generator home</h1>
-<%= form_tag(json_gen_path(:format => "json"), method: "get") do %>
-  Github clone URL:
-  <%= text_field_tag(:github_repo) %>
-  <br>
-  AWS keypair name:
-  <%= text_field_tag(:keypair) %>
-  <br>
-  <%= submit_tag("Submit", :name => nil) %>
+<%= form_tag(json_gen_path(:format => "json"), method: "get", role: "form") do %>
+<div class="multi-field-wrapper">
+  <div>
+    Github clone URL: <%= text_field_tag("github_repo[]") %>
+  </div>
+</div>
+<br>
+<button type="button" class="btn btn-default add-field">Add Rails Project</button>
+<%= submit_tag("Submit", :name => nil, :class => "btn btn-success") %>
 <% end %>
