@@ -15,15 +15,19 @@ class AwsTemplate
   end
 
   def add_resources resources
-    resources.each do |resource|
-      add_resource resource
-    end
+    resources.each { |r| add_resource r }
   end
-
+  
   def add_output output
     raise 'Output was nil or empty' if output.nil? or output.to_h.empty?
-
+    
     @outputs.push output
+  end
+  
+  def add_outputs outputs
+    outputs.each { |o|
+      add_output o 
+    }
   end
   
   # essentially merges a list of hashes

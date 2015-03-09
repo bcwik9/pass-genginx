@@ -29,6 +29,7 @@ class GeneratorController < ApplicationController
     sg = AwsSecurityGroup.new
     ec2.add_security_group sg
     template.add_resources [ec2, sg]
+    template.add_outputs ec2.generate_outputs
     render :json => template.to_json
   end
 end

@@ -1,4 +1,5 @@
 require_relative 'template'
+require_relative 'output'
 
 module AwsResource  
   require 'json'
@@ -20,6 +21,12 @@ module AwsResource
       :Ref => @name
     }
   end
+  
+  def generate_outputs
+    [
+     AwsOutput.new
+    ]
+  end
 
   def set_default_properties
     @properties = {}
@@ -27,6 +34,12 @@ module AwsResource
 
   def set_default_name
     @name = 'defaultResource'
+  end
+
+  def get_att attribute
+    {
+      "Fn::GetAtt" => [ @name, attribute ]
+    } 
   end
 
   def to_h

@@ -50,6 +50,13 @@ class AwsEc2Resource
     }
   end
 
+  def generate_outputs
+    [
+     AwsOutput.new({:name => "#{@name}Ip", :description => "IP of the EC2 instance #{@name}", :value => get_att(:PublicIp) }),
+     AwsOutput.new({:name => "#{@name}Url", :description => "URL of the EC2 instance #{@name}", :value => AwsTemplate.join(['http://', get_att(:PublicDnsName)])})
+    ]
+  end
+  
   def add_security_group security_group
     raise 'Invalid security group' if security_group.nil? or security_group.to_h.empty?
     
