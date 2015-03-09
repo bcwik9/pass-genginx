@@ -1,6 +1,7 @@
 class GeneratorController < ApplicationController
   require 'cloudform/template'
-  require 'json'
+  require 'cloudform/ec2_resource'
+  require 'cloudform/security_group_resource'
 
   def index
   end
@@ -22,6 +23,12 @@ class GeneratorController < ApplicationController
 
     # render the json
     #send_data cloudformation_template(github_project_name, github_clone_url, nil), filename: "#{github_project_name}.json", type: :json
-    render :json => AwsTemplate.cloudformation_template(github_project_name, github_clone_url, "laptop")
+    #render :json => AwsTemplate.cloudformation_template(github_project_name, github_clone_url, "laptop")
+    template = AwsTemplate.new
+    ec2 = AwsEc2Resource.new
+    sg = AwsSecurityGroup.new
+    ec2.add_security_group sg
+    template.add_resources [ec2, sg]
+    render :json => template.to_json
   end
 end

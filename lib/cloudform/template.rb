@@ -3,17 +3,41 @@ require 'json'
 class AwsTemplate
   attr_accessor :format_version, :resources, :outputs
   
-  def initialize opt
+  def initialize opt={}
     @format_version = opt[:format_version] || "2010-09-09"
-    @resources = opt[:resources] || {}
-    @outputs = opt[:outputs] || {}
+    @resources = opt[:resources] || []
+    @outputs = opt[:outputs] || []
   end
 
+  def add_resource resource
+    raise 'Resource was nil or empty' if resource.nil? or resource.to_h.empty?
+    @resources.push resource
+  end
+
+  def add_resources resources
+    resources.each do |resource|
+      add_resource resource
+    end
+  end
+
+  def add_output output
+    raise 'Output was nil or empty' if output.nil? or output.to_h.empty?
+
+    @outputs.push output
+  end
+  
+  # essentially merges a list of hashes
+  def prepare_section arr
+    ret = {}
+    arr.each { |i| ret.merge! i.to_h }
+    return ret
+  end
+  
   def to_h
     {
-      "AWSTemplateFormatVersion" => @format_version,
-      "Resources" => @resources,
-      "Outputs" => @outputs
+      :AWSTemplateFormatVersion => @format_version,
+      :Resources => prepare_section(@resources),
+      :Outputs => prepare_section(@outputs)
     }
   end
 
@@ -35,18 +59,17 @@ class AwsTemplate
             "SecurityGroups" => [ { "Ref" => "#{safe_name}sg" } ],
             "ImageId" => image_id,
             "UserData" => {
-              "Fn::Base64" => {
-                "Fn::Join" => ["",[
-                                   "#!/bin/bash -v\n",
-                                   "export HOME=`pwd`" ,"\n",
-                                   "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh", "\n",
-                                   "cd /home/ubuntu", "\n",
-                                   "git clone #{clone_url}", "\n",
-                                   "cd #{project_name}", "\n",
-                                   "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
-                                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n",
-                                   "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n",
-                                   "echo \"
+              "Fn::Base64" => join([
+                                    "#!/bin/bash -v\n",
+                                    "export HOME=`pwd`" ,"\n",
+                                    "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh", "\n",
+                                    "cd /home/ubuntu", "\n",
+                                    "git clone #{clone_url}", "\n",
+                                    "cd #{project_name}", "\n",
+                                    "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
+                                    "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n",
+                                    "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n",
+                                    "echo \"
 #user  nobody;
 worker_processes  1;
 
@@ -87,15 +110,15 @@ http {
 
 
 }\" > temp_nginx.conf", "\n",
-                                   "sudo mv temp_nginx.conf /opt/nginx/conf/nginx.conf", "\n",
-                                   "sudo /opt/nginx/sbin/nginx", "\n",
-                                   "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
-                                   "\"Reason\" : \"Server is ready\",",
-                                   "\"UniqueId\" : \"#{safe_name}ec2\",",
-                                   "\"Data\" : \"Done\"}' ",
-                                   "\"", {"Ref" => "WaitForInstanceWaitHandle"},"\"\n"
-                                  ]]
-              }
+                                    "sudo mv temp_nginx.conf /opt/nginx/conf/nginx.conf", "\n",
+                                    "sudo /opt/nginx/sbin/nginx", "\n",
+                                    "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                                    "\"Reason\" : \"Server is ready\",",
+                                    "\"UniqueId\" : \"#{safe_name}ec2\",",
+                                    "\"Data\" : \"Done\"}' ",
+                                    "\"", {"Ref" => "WaitForInstanceWaitHandle"},"\"\n"
+                                   ])
+              
             },
             "Tags"=> [
                       {
@@ -199,7 +222,7 @@ http {
         },
         "WebsiteURL" => {
           "Description" => "The URL for the newly created Rails application",
-          "Value" => { "Fn::Join" => ["", [ "http://", { "Fn::GetAtt" => [ "#{safe_name}ec2", "PublicDnsName" ] } ]]}
+          "Value" => join([ "http://", { "Fn::GetAtt" => [ "#{safe_name}ec2", "PublicDnsName" ] } ])
         },
         "SurveyURL" => {
           "Description" => "The URL for the newly created Survey application",
