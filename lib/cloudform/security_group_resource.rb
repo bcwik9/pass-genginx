@@ -54,12 +54,4 @@ class AwsSecurityGroup
                ]
     }
   end
-  
-  def set_default_name
-    @name = 'defaultSecurityGroupResource'
-  end
-  
-  def to_h
-    super.to_h
-  end
 end

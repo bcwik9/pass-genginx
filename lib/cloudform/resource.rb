@@ -33,7 +33,7 @@ module AwsResource
   end
 
   def set_default_name
-    @name = 'defaultResource'
+    @name = "default#{self.class.to_s}"
   end
 
   def get_att attribute

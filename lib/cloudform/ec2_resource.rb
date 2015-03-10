@@ -1,6 +1,6 @@
 require_relative 'resource'
 
-class AwsEc2Resource
+class AwsEc2Instance
   include AwsResource
   
   attr_accessor :commands, :security_groups
@@ -28,10 +28,6 @@ class AwsEc2Resource
                 }
                ]
     }
-  end
-
-  def set_default_name
-    @name = 'defaultEc2Resource'
   end
 
   # add command to install RVM, ruby, rails, nginx, and passenger
