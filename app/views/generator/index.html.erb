@@ -1,11 +1,39 @@
-<h1>generator home</h1>
-<%= form_tag(json_gen_path(:format => "json"), method: "get", role: "form") do %>
-<div class="multi-field-wrapper">
-  <div>
-    Github clone URL: <%= text_field_tag("github_repo[]") %>
+<div class="container-full">
+  <div class="row">
+    
+    <div class="col-lg-12 text-center v-center">
+      <h1>Rails Cloud Deploy Generator</h1>
+      <p class="lead">A plug-and-play Rails Amazon AWS Cloudformation solution</p>
+      
+      <br><i class="fa fa-cloud fa-4x"></i><br><br>
+      
+      
+      <p id="notice"><%= notice %></p>
+      <p>Enter an existing Github clone URL for a Ruby on Rails project, or clone this site!</p>
+      <%= form_tag(json_gen_path(:format => "json"), method: "get", role: "form", class: "col-lg-12") do %>
+      <div class="input-group" style="width:340px;text-align:center;margin:0 auto;">
+	<%= text_field_tag("github_repo[]", "https://github.com/bcwik9/pass-genginx.git", class: "form-control input-lg", title: "Enter a Rails github clone URL" ) %>
+	<span class="input-group-btn">
+	  <%= button_tag(type: "submit", class: "btn btn-lg btn-success") do %>
+	  <i class="fa fa-search"></i>
+	  <% end %>
+	</span>
+      </div>
+      <% end %>
+
+    </div>
+    
+  </div> <!-- /row -->
+  
+  <div class="row">
+    
+    <div class="col-lg-12 text-center v-center">
+      <a href="http://bencwik.com"><h3>[Ben Cwik]</h3></a>
+      <a href="https://github.com/bcwik9"><i class="fa fa-github fa-4x"></i></a>
+    </div>
+    
   </div>
-</div>
-<br>
-<button type="button" class="btn btn-default add-field">Add Rails Project</button>
-<%= submit_tag("Submit", :name => nil, :class => "btn btn-success") %>
-<% end %>
+  
+  <br><br><br><br><br>
+
+</div> <!-- /container full -->
