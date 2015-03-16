@@ -20,7 +20,7 @@ module AwsResource
   end
 
   def to_h
-    ret = super.to_h
+    ret = super
     ret[@logical_id][:Type] = @type
     ret[@logical_id][:Properties] = @properties
     ret[@logical_id][:DependsOn] = @depends_on if @depends_on

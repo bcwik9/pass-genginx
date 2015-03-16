@@ -69,6 +69,6 @@ class AwsEc2Instance
       @properties[:SecurityGroups].push sg.get_reference
     end
 
-    super.to_h
+    super
   end
 end

@@ -18,7 +18,7 @@ class AwsParameter
   end
     
   def to_h
-    ret = super.to_h
+    ret = super
     ret[@logical_id][:Description] = @description
     ret[@logical_id][:Type] = @type
     ret[@logical_id][:Default] if @default
