@@ -45,7 +45,7 @@ class AwsSecurityGroup
       :Tags => [
                 {
                   :Key => 'Name',
-                  :Value => @name
+                  :Value => @logical_id
                 },
                 {
                   :Key => 'deployer',

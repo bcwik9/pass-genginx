@@ -1,24 +1,20 @@
-require_relative 'template'
+require_relative 'aws_object'
 
 class AwsOutput
-  attr_accessor :name, :description, :value
+  include AwsObject
+
+  attr_accessor :description, :value
   
   def initialize opt={}
-    @name = opt[:name] || 'defaultOutput'
+    super opt
     @description = opt[:description] || 'Example AWS Output'
-    @value = opt[:value] || ''
+    @value = opt[:value] || 'Example output value'
   end
     
   def to_h
-    {
-      @name => {
-        :Description => @description,
-        :Value => @value
-      }
-    }
-  end
-
-  def to_json
-    to_h.to_json
+    ret = super.to_h
+    ret[@logical_id][:Description] = @description
+    ret[@logical_id][:Value] = @value
+    return ret
   end
 end

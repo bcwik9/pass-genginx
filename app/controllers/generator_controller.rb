@@ -1,5 +1,6 @@
 class GeneratorController < ApplicationController
   require 'cloudform/template'
+  require 'cloudform/parameter'
   require 'cloudform/ec2_resource'
   require 'cloudform/security_group_resource'
   require 'cloudform/wait_handle_resource'
@@ -24,82 +25,67 @@ class GeneratorController < ApplicationController
     end
 
     # render the json
-    #send_data cloudformation_template(github_project_name, github_clone_url, nil), filename: "#{github_project_name}.json", type: :json
+    #send_data AwsTemplate.cloudformation_template(github_project_name, github_clone_url, nil), filename: "#{github_project_name}.json", type: :json
     #render :json => AwsTemplate.cloudformation_template(github_project_name, github_clone_url, "laptop")
     
+    # create a blank template
     template = AwsTemplate.new
+
+    # create default security group to associate with our ec2 instances
     sg = AwsSecurityGroup.new
+    # add it to the template
+    template.add_resource sg
+
+    # add param for SSH keypair
+    keypair_name = AwsParameter.new(:description => 'SSH keypair', :type => "AWS::EC2::KeyPair::KeyName")
+    # add it to template
+    template.add_parameter keypair_name
+
+    # create x number of ec2 instances and associated wait handles
     1.times.each do |i|
-      ec2 = AwsEc2Instance.new({:name => "testInstance#{i}"})
+      # instantiate new ec2 instance
+      ec2 = AwsEc2Instance.new({:logical_id => "testInstance#{i}"})
+      # associate the security group we created before with the new instance
       ec2.add_security_group sg
-      ec2.bootstrap
+      # add some basic outputs
       template.add_outputs ec2.generate_outputs
+      # create new wait handle and wait condition
       handle = AwsWaitHandle.new
       cond = AwsWaitCondition.new
+      # associate wait condition/handle and ec2 
       cond.set_handle handle
-      ec2.properties[:KeyName] = 'laptop'
-      cond.depends_on = ec2.name
+      cond.depends_on = ec2.logical_id
+      # add the SSH keypair we created before
+      ec2.properties[:KeyName] = keypair_name.get_reference
+      # add commands to set up ec2 instance with rvm/rails/nginx/git etc
+      ec2.bootstrap
+      # set up rails github project on ec2 server
       ec2.commands += [
                        "cd /home/ubuntu", "\n",
-                       "git clone #{github_clone_url}", "\n",
+                       "bash --login /usr/local/rvm/bin/rvmsudo git clone #{github_clone_url}", "\n",
                        "cd #{github_project_name}", "\n",
                        "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
-                       "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n",
-                       "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n",
-"echo \"
-#user  nobody;
-worker_processes  1;
-
-#error_log  logs/error.log;
-#error_log  logs/error.log  notice;
-#error_log  logs/error.log  info;
-
-#pid        logs/nginx.pid;
-
-
-events {
-    worker_connections  1024;
-}
-
-
-http {
-    passenger_root /var/lib/gems/1.9.1/gems/passenger-4.0.59;
-    passenger_ruby /usr/bin/ruby1.9.1;
-
-    passenger_app_env development;
-
-    include       mime.types;
-    default_type  application/octet-stream;
-
-    sendfile        on;
-
-    keepalive_timeout  65;
-
-    #{AwsTemplate.get_nginx_server github_project_name, 80, 3000}
-
-    server {
-        listen 80;
-        server_name  survey.*;
-        location / {
-           proxy_pass http://localhost:3000;
-        }
-    }
-
-
-}\" > temp_nginx.conf", "\n",
-                       "sudo mv temp_nginx.conf /opt/nginx/conf/nginx.conf", "\n",
+                       "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n"
+                       #"bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n"
+                      ]
+      # set up nginx with rails project
+      ec2.commands += [
+                       "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/add_nginx_servers.rb && bash --login /usr/local/rvm/bin/rvmsudo ruby add_nginx_servers.rb 80:/home/ubuntu/#{github_project_name}/public", "\n",
                        "sudo /opt/nginx/sbin/nginx", "\n"
                       ]
+      # notify that everything is done
       ec2.commands += [
                        "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
                        "\"Reason\" : \"Server is ready\",",
-                       "\"UniqueId\" : \"#{ec2.name}\",",
+                       "\"UniqueId\" : \"#{ec2.logical_id}\",",
                        "\"Data\" : \"Done\"}' ",
                        "\"", handle.get_reference,"\"\n"
                       ]
+      # add everything we just created to the template
       template.add_resources [ec2, handle, cond]
     end
-    template.add_resource sg
+    
+    # display the template as JSON
     render :json => template.to_json
   end
 end

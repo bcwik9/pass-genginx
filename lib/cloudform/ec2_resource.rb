@@ -1,4 +1,5 @@
 require_relative 'resource'
+require_relative 'output'
 
 class AwsEc2Instance
   include AwsResource
@@ -20,7 +21,7 @@ class AwsEc2Instance
       :Tags => [
                 {
                   :Key => "Name",
-                  :Value => @name
+                  :Value => @logical_id
                 },
                 {
                   :Key => "deployer",
@@ -48,8 +49,8 @@ class AwsEc2Instance
 
   def generate_outputs
     [
-     AwsOutput.new({:name => "#{@name}Ip", :description => "IP of the EC2 instance #{@name}", :value => get_att(:PublicIp) }),
-     AwsOutput.new({:name => "#{@name}Url", :description => "URL of the EC2 instance #{@name}", :value => AwsTemplate.join(['http://', get_att(:PublicDnsName)])})
+     AwsOutput.new({:logical_id => "#{@logical_id}Ip", :description => "IP of the EC2 instance #{@logical_id}", :value => get_att(:PublicIp) }),
+     AwsOutput.new({:logical_id => "#{@logical_id}Url", :description => "URL of the EC2 instance #{@logical_id}", :value => AwsTemplate.join(['http://', get_att(:PublicDnsName)])})
     ]
   end
   
