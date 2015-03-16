@@ -5,7 +5,7 @@ $(document).ready(function() {
     var wrapper         = $(".multi-field-wrapper"); //Fields wrapper
     var add_button      = $(".add-field"); //Add button ID
     
-    var x = 1; //initlal text box count
+    var x = 1; //initial text box count
 
     // add element
     $(add_button).click(function(e){ //on add input button click

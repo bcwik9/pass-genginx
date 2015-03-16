@@ -24,10 +24,6 @@ class GeneratorController < ApplicationController
       return
     end
 
-    # render the json
-    #send_data AwsTemplate.cloudformation_template(github_project_name, github_clone_url, nil), filename: "#{github_project_name}.json", type: :json
-    #render :json => AwsTemplate.cloudformation_template(github_project_name, github_clone_url, "laptop")
-    
     # create a blank template
     template = AwsTemplate.new
 
@@ -35,11 +31,6 @@ class GeneratorController < ApplicationController
     sg = AwsSecurityGroup.new
     # add it to the template
     template.add_resource sg
-
-    # add param for SSH keypair
-    keypair_name = AwsParameter.new(:description => 'SSH keypair', :type => "AWS::EC2::KeyPair::KeyName")
-    # add it to template
-    template.add_parameter keypair_name
 
     # create x number of ec2 instances and associated wait handles
     1.times.each do |i|
@@ -55,8 +46,6 @@ class GeneratorController < ApplicationController
       # associate wait condition/handle and ec2 
       cond.set_handle handle
       cond.depends_on = ec2.logical_id
-      # add the SSH keypair we created before
-      ec2.properties[:KeyName] = keypair_name.get_reference
       # add commands to set up ec2 instance with rvm/rails/nginx/git etc
       ec2.bootstrap
       # set up rails github project on ec2 server
@@ -65,7 +54,8 @@ class GeneratorController < ApplicationController
                        "bash --login /usr/local/rvm/bin/rvmsudo git clone #{github_clone_url}", "\n",
                        "cd #{github_project_name}", "\n",
                        "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
-                       "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n"
+                       "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n",
+                       "sudo chmod -R 777 /home/ubuntu/#{github_project_name}", "\n"
                        #"bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n"
                       ]
       # set up nginx with rails project
@@ -87,5 +77,8 @@ class GeneratorController < ApplicationController
     
     # display the template as JSON
     render :json => template.to_json
+
+    # download json directly
+    #send_data template.to_json, filename: "#{github_project_name}.json", type: :json
   end
 end
