@@ -56,6 +56,93 @@ puts template.to_json
 
 Here's the Amazon AWS Cloudformation ready JSON:
 ```json
-{"AWSTemplateFormatVersion":"2010-09-09","Description":"Example AWS Cloudformation template","Resources":{"defaultAwsEc2Instance":{"Type":"AWS::EC2::Instance","Properties":{"InstanceType":"t2.micro","ImageId":"ami-9a562df2","Tags":[{"Key":"Name","Value":"defaultAwsEc2Instance"},{"Key":"deployer","Value":"ubuntu"}],"UserData":{"Fn::Base64":{"Fn::Join":["",["#!/bin/bash -v\n"]]}},"SecurityGroups":[{"Ref":"defaultAwsSecurityGroup"}],"KeyName":{"Ref":"defaultAwsParameter"}}},"defaultAwsSecurityGroup":{"Type":"AWS::EC2::SecurityGroup","Properties":{"GroupDescription":"Enable access to port(s): 22,80,443,","SecurityGroupIngress":[{"IpProtocol":"tcp","FromPort":22,"ToPort":22,"CidrIp":"0.0.0.0/0"},{"IpProtocol":"tcp","FromPort":80,"ToPort":80,"CidrIp":"0.0.0.0/0"},{"IpProtocol":"tcp","FromPort":443,"ToPort":443,"CidrIp":"0.0.0.0/0"},{"IpProtocol":"tcp","FromPort":3000,"ToPort":3000,"CidrIp":"0.0.0.0/0"}],"Tags":[{"Key":"Name","Value":"defaultAwsSecurityGroup"},{"Key":"deployer","Value":"ubuntu"}]}}},"Parameters":{"defaultAwsParameter":{"Description":"Example AWS Parameter","Type":"AWS::EC2::KeyPair::KeyName"}}}
-
+{
+    AWSTemplateFormatVersion: "2010-09-09",
+    Description: "Example AWS Cloudformation template",
+    Resources: {
+	defaultAwsEc2Instance: {
+	    Type: "AWS::EC2::Instance",
+	    Properties: {
+		InstanceType: "t2.micro",
+		ImageId: "ami-9a562df2",
+		Tags: [
+		    {
+			Key: "Name",
+			Value: "defaultAwsEc2Instance"
+		    },
+		    {
+			Key: "deployer",
+			Value: "ubuntu"
+		    }
+		],
+		UserData: {
+		    Fn::Base64: {
+			Fn::Join: [
+			    "",
+			    [
+				"#!/bin/bash -v "
+			    ]
+			]
+		    }
+		},
+		SecurityGroups: [
+		    {
+			Ref: "defaultAwsSecurityGroup"
+		    }
+		],
+		KeyName: {
+		    Ref: "defaultAwsParameter"
+		}
+	    }
+	},
+	defaultAwsSecurityGroup: {
+	    Type: "AWS::EC2::SecurityGroup",
+	    Properties: {
+		GroupDescription: "Enable access to port(s): 22,80,443,",
+		SecurityGroupIngress: [
+		    {
+			IpProtocol: "tcp",
+			FromPort: 22,
+			ToPort: 22,
+			CidrIp: "0.0.0.0/0"
+		    },
+		    {
+			IpProtocol: "tcp",
+			FromPort: 80,
+			ToPort: 80,
+			CidrIp: "0.0.0.0/0"
+		    },
+		    {
+			IpProtocol: "tcp",
+			FromPort: 443,
+			ToPort: 443,
+			CidrIp: "0.0.0.0/0"
+		    },
+		    {
+			IpProtocol: "tcp",
+			FromPort: 3000,
+			ToPort: 3000,
+			CidrIp: "0.0.0.0/0"
+		    }
+		],
+		Tags: [
+		    {
+			Key: "Name",
+			Value: "defaultAwsSecurityGroup"
+		    },
+		    {
+			Key: "deployer",
+			Value: "ubuntu"
+		    }
+		]
+	    }
+	}
+    },
+    Parameters: {
+	defaultAwsParameter: {
+	    Description: "Example AWS Parameter",
+	    Type: "AWS::EC2::KeyPair::KeyName"
+	}
+    }
+}
 ```
