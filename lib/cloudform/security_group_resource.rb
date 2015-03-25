@@ -24,6 +24,10 @@ class AwsSecurityGroup
     return ret
   end
 
+  def update_description
+    @properties[:GroupDescription] = generate_description if @properties
+  end
+
   # returns a hash representation of access specification for a security group
   def generate_access from, to=from, protocol='tcp', ip='0.0.0.0/0'
     {
@@ -37,11 +41,15 @@ class AwsSecurityGroup
   # add access to specific port ranges
   def add_access  from, to=from, protocol='tcp', ip='0.0.0.0/0'
     @ports.push generate_access(from, to, protocol, ip)
+    # update the description
+    update_description
   end
 
   # remove access to specific port ranges
   def remove_access from, to=from, protocol='tcp', ip='0.0.0.0/0'
     @ports.delete generate_access(from, to, protocol, ip)
+    # update the description
+    update_description
   end
   
   # enable access to SSH (port 22) and HTTP/HTTPS (port 80/443)
