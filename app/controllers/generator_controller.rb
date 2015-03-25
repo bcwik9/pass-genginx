@@ -31,6 +31,8 @@ class GeneratorController < ApplicationController
     sg = AwsSecurityGroup.new
     # add it to the template
     template.add_resource sg
+    # remove (default) access to port 22 since we don't need to SSH
+    sg.remove_access 22
 
     # create x number of ec2 instances and associated wait handles
     1.times.each do |i|

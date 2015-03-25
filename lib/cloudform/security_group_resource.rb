@@ -23,14 +23,25 @@ class AwsSecurityGroup
 
     return ret
   end
+
+  # returns a hash representation of access specification for a security group
+  def generate_access from, to=from, protocol='tcp', ip='0.0.0.0/0'
+    {
+      :IpProtocol => protocol,
+      :FromPort => from,
+      :ToPort => to,
+      :CidrIp => ip
+    }
+  end
   
+  # add access to specific port ranges
   def add_access  from, to=from, protocol='tcp', ip='0.0.0.0/0'
-    @ports.push({
-                  :IpProtocol => protocol,
-                  :FromPort => from,
-                  :ToPort => to,
-                  :CidrIp => ip
-                })
+    @ports.push generate_access(from, to, protocol, ip)
+  end
+
+  # remove access to specific port ranges
+  def remove_access from, to=from, protocol='tcp', ip='0.0.0.0/0'
+    @ports.delete generate_access(from, to, protocol, ip)
   end
   
   # enable access to SSH (port 22) and HTTP/HTTPS (port 80/443)
