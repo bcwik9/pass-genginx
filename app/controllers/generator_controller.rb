@@ -101,8 +101,9 @@ class GeneratorController < ApplicationController
     eb_config = AwsElasticBeanstalkConfigurationTemplate.new
     eb_config.set_application_name eb_app.get_reference
     eb_config.enable_single_instance
-    eb_config.set_image_id 'ami-26b9834e' # bitnami ruby stack
+    #eb_config.set_image_id 'ami-26b9834e'
     eb_config.set_instance_type 't2.micro'
+    eb_config.set_stack_name "64bit Amazon Linux 2015.03 v1.3.0 running Ruby 2.2 (Passenger Standalone)"
 
     eb_env = AwsElasticBeanstalkEnvironment.new
     eb_env.set_application_name eb_app.get_reference

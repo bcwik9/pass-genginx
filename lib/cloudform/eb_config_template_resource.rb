@@ -3,11 +3,9 @@ require_relative 'eb_resource'
 class AwsElasticBeanstalkConfigurationTemplate
   include AwsElasticBeanstalkResource
   
-  
   def initialize opt={}
     opt[:type] = "AWS::ElasticBeanstalk::ConfigurationTemplate"
     super opt
-    set_stack_name 'DefaultStackName'
   end
 
   def set_application_name name
