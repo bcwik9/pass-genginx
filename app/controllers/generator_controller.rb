@@ -93,7 +93,6 @@ class GeneratorController < ApplicationController
 
   def eb_app_call
     eb_app = AwsElasticBeanstalkApplication.new
-    raise eb_app.properties
 
     eb_version = AwsElasticBeanstalkApplicationVersion.new
     eb_version.set_application_name eb_app.get_reference

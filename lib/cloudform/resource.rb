@@ -12,7 +12,6 @@ module AwsResource
     super opt
     @type = opt[:type]
     @properties = opt[:properties] || set_default_properties
-    raise @properties
     @depends_on = opt[:depends_on]
   end
 

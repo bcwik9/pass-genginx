@@ -3,13 +3,8 @@ require_relative 'resource'
 module AwsElasticBeanstalkResource
   include AwsResource
   
-  
   def initialize opt={}
     super opt
-  end
-  
-  def set_default_properties
-    super
     set_description "AWS Elastic Beanstalk Sample #{self.class.name}"
   end
 

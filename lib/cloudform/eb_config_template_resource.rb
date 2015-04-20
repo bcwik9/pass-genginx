@@ -7,10 +7,6 @@ class AwsElasticBeanstalkConfigurationTemplate
   def initialize opt={}
     opt[:type] = "AWS::ElasticBeanstalk::ConfigurationTemplate"
     super opt
-  end
-
-  def set_default_properties
-    super
     set_stack_name 'DefaultStackName'
   end
 
