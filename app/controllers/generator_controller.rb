@@ -5,11 +5,18 @@ class GeneratorController < ApplicationController
   require 'cloudform/security_group_resource'
   require 'cloudform/wait_handle_resource'
   require 'cloudform/wait_condition_resource'
+  require 'cloudform/eb_application_version_resource'
+  require 'cloudform/eb_application_resource'
+  require 'cloudform/eb_config_template_resource'
+  require 'cloudform/eb_environment_resource'
 
   def index
   end
   
   def json_gen
+    eb_app_call
+    return
+
     # check github url param
     github_clone_url = params[:github_repo].first
     if github_clone_url.nil? or github_clone_url.empty?
@@ -82,5 +89,31 @@ class GeneratorController < ApplicationController
 
     # download json directly
     #send_data template.to_json, filename: "#{github_project_name}.json", type: :json
+  end
+
+  def eb_app_call
+    eb_app = AwsElasticBeanstalkApplication.new
+    raise eb_app.properties
+
+    eb_version = AwsElasticBeanstalkApplicationVersion.new
+    eb_version.set_application_name eb_app.get_reference
+    eb_version.set_source 'elasticbeanstalk-us-east-1-719719598906', 'questionnaire-forms-master.zip'
+
+    eb_config = AwsElasticBeanstalkConfigurationTemplate.new
+    eb_config.set_application_name eb_app.get_reference
+    eb_config.enable_single_instance
+    eb_config.set_image_id 'ami-26b9834e' # bitnami ruby stack
+    eb_config.set_instance_type 't2.micro'
+
+    eb_env = AwsElasticBeanstalkEnvironment.new
+    eb_env.set_application_name eb_app.get_reference
+    eb_env.set_template_name eb_config.get_reference
+    eb_env.set_version_label eb_version.get_reference
+    
+    # create a blank template and add all the resources we need
+    template = AwsTemplate.new
+    template.add_resources [eb_app, eb_version, eb_config, eb_env]
+
+    render :json => template.to_json
   end
 end

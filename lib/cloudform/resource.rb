@@ -2,16 +2,17 @@ require_relative 'aws_object'
 
 module AwsResource
   include AwsObject
-
+  
   attr_accessor :type, :properties, :depends_on
   
-  ALLOWED_TYPES = ["AWS::EC2::Instance", "AWS::EC2::SecurityGroup", "AWS::CloudFormation::WaitConditionHandle", "AWS::CloudFormation::WaitCondition", "AWS::Route53::RecordSetGroup", "AWS::Route53::HostedZone"]
+  ALLOWED_TYPES = ["AWS::EC2::Instance", "AWS::EC2::SecurityGroup", "AWS::CloudFormation::WaitConditionHandle", "AWS::CloudFormation::WaitCondition", "AWS::Route53::RecordSetGroup", "AWS::Route53::HostedZone", "AWS::ElasticBeanstalk::Application", "AWS::ElasticBeanstalk::ApplicationVersion", "AWS::ElasticBeanstalk::ConfigurationTemplate", "AWS::ElasticBeanstalk::Environment"]
   
   def initialize opt
     raise "Unsupported type: #{opt[:type]}" unless ALLOWED_TYPES.include? opt[:type]
     super opt
     @type = opt[:type]
     @properties = opt[:properties] || set_default_properties
+    raise @properties
     @depends_on = opt[:depends_on]
   end
 
