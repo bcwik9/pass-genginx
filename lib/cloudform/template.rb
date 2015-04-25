@@ -60,6 +60,10 @@ class AwsTemplate
     generate_reference "AWS::Region"
   end
 
+  def self.stack_name_reference
+    generate_reference 'AWS::StackName'
+  end
+
   # capitalize first letter of all keys in a hash
   def self.capitalize_keys h
     ret = {}

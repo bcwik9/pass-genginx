@@ -4,12 +4,13 @@ require_relative 'output'
 class AwsEc2Instance
   include AwsResource
   
-  attr_accessor :commands, :security_groups
+  attr_accessor :commands, :security_groups, :metadata
   
   def initialize opt={}
     @commands = [ "#!/bin/bash -v\n" ]
     opt[:type] = "AWS::EC2::Instance"
     @security_groups = opt[:security_groups] || []
+    @metadata = opt[:metadata] || {}
     super opt
   end
   
@@ -17,17 +18,7 @@ class AwsEc2Instance
   def set_default_properties
     @properties = {
       :InstanceType => "t2.micro",
-      :ImageId => "ami-9a562df2",
-      :Tags => [
-                {
-                  :Key => "Name",
-                  :Value => @logical_id
-                },
-                {
-                  :Key => "deployer",
-                  :Value => "ubuntu"
-                }
-               ]
+      :ImageId => "ami-d05e75b8"
     }
   end
 
@@ -79,6 +70,9 @@ class AwsEc2Instance
       @properties[:SecurityGroups].push sg.get_reference
     end
 
-    super
+    ret = super
+
+    ret[@logical_id][:Metadata] = @metadata unless @metadata.empty?
+    return ret
   end
 end

@@ -76,17 +76,7 @@ class AwsSecurityGroup
     
     @properties = {
       :GroupDescription => generate_description,
-      :SecurityGroupIngress => @ports,
-      :Tags => [
-                {
-                  :Key => 'Name',
-                  :Value => @logical_id
-                },
-                {
-                  :Key => 'deployer',
-                  :Value => 'ubuntu'
-                }
-               ]
+      :SecurityGroupIngress => @ports
     }
   end
 

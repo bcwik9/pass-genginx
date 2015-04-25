@@ -7,6 +7,8 @@ class GeneratorController < ApplicationController
   def json_gen
     # use a template instead
     #template = ec2_with_elasticache_template
+    #template = ec2_with_cfn_init_template
+    #template = basic_ec2_with_sg_template
     #render :json => template.to_json
     #return
     

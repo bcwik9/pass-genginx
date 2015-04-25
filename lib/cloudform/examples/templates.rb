@@ -14,6 +14,30 @@ require_relative '../iam_policy_resource'
 require_relative '../iam_role_resource'
 require_relative '../wait_condition_resource'
 require_relative '../wait_handle_resource'
+require_relative '../cloudformation_init'
+
+# a simple ec2 server with security group
+# asks for a SSH key as only parameter
+# ports open: 22 (SSH), 80 and 443 (HTTP/HTTPS)
+def basic_ec2_with_sg_template
+  template = AwsTemplate.new(:description => 'Basic cloudformation template with a single ec2 instance and security group with ports 22, 80, and 443 open')
+  
+  # user will pass in their SSH key at runtime
+  ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
+  
+  # basic security group with ports 22, 80, and 443 open by default
+  sg = AwsSecurityGroup.new
+  
+  ec2 = AwsEc2Instance.new
+  ec2.add_security_group sg # associate security group with ec2 instance
+  ec2.add_property :KeyName, ssh_key_param.get_reference # add ssh key param
+
+  # add resources and parameter to our template
+  template.add_resources [ec2, sg]
+  template.add_parameter ssh_key_param
+  
+  return template
+end
 
 # create an elastic beanstalk Rails application from a project zip stored in S3
 def elasticbeanstalk_app_template
@@ -21,7 +45,7 @@ def elasticbeanstalk_app_template
   # prompt user for SECRET_KEY_BASE
   secret_key_param = AwsParameter.new(:logical_id => "SecretKeyBase", :description => "Rails secret key base for production", :default => "CHANGEME")
   secret_key_param.add_option(:minLength, 1)
-
+  
   # prompt user for S3 bucket name
   bucket_name_param = AwsParameter.new(:logical_id => "BucketName", :description => "S3 Bucket name where Rails project is stored")
   bucket_name_param.add_option(:minLength, 1)
@@ -52,7 +76,7 @@ def elasticbeanstalk_app_template
   eb_env.set_version_label eb_version.get_reference
   
   # create a blank template and add all the resources/parameters we need
-  template = AwsTemplate.new
+  template = AwsTemplate.new(:description => 'Create an elasticbeanstalk app from a rails zip file stored in s3')
   template.add_resources [eb_app, eb_version, eb_config, eb_env]
   template.add_parameters [secret_key_param, bucket_name_param, project_zip_param]
 
@@ -77,7 +101,6 @@ def ec2_with_elasticache_template
   redis_ec.add_property :CacheSecurityGroupNames, [redis_sg.get_reference]
   
   ec2_sg = AwsSecurityGroup.new
-  ec2_sg.properties.delete :Tags # TODO: remove tags permanently?
   
   ec2 = AwsEc2Instance.new
   ec2.add_security_group ec2_sg
@@ -96,13 +119,80 @@ def ec2_with_elasticache_template
                    " > /var/log/redis_cluster.log", "\n"
                   ]
   ec2.add_property :IamInstanceProfile, iam_profile.get_reference
-  ec2.properties.delete :Tags # TODO: remove tags permanently?
   ec2.add_property :KeyName, ssh_key_param.get_reference
   
   redis_ingress = AwsElastiCacheSecurityGroupIngress.new(:cache_security_group => redis_sg, :ec2_security_group => ec2_sg)
 
-  template = AwsTemplate.new
+  template = AwsTemplate.new(:description => 'creates a ec2 instance which has access to a redis elasticache cluster')
   template.add_resources [redis_sg, redis_ec, ec2_sg, ec2, redis_ingress, iam_role, iam_policy, iam_profile]
+  template.add_parameter ssh_key_param
+  return template
+end
+
+def ec2_with_cfn_init_template
+  ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
+  
+  ec2_sg = AwsSecurityGroup.new
+  
+  ec2_config = AwsCloudFormationInit.new
+  ec2_config.add_config(
+                        # create some files from content and the web
+                        :files => [
+                                   {
+                                     :content => 'hello again, world!'
+                                   },
+                                   {
+                                     :source => 'https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/add_nginx_servers.rb'
+                                   }
+                                  ],
+                        # install git and emacs
+                        :packages => [
+                                      {
+                                        :package => 'git'
+                                      },
+                                      {
+                                        :package => 'emacs'
+                                      }
+                                     ],
+                        # pull a project down from github
+                        :sources => [
+                                     {
+                                       :url => 'https://github.com/bcwik9/bcwik-site/tarball/master',
+                                       :dir => '/etc/myApp'
+                                     }
+                                    ],
+                        # execute bash commands
+                        :commands => [
+                                      {
+                                        :command => 'echo "hello world!" > /var/log/helloworld.log'
+                                      }
+                                     ]
+                        )
+  
+  ec2 = AwsEc2Instance.new
+  ec2.add_security_group ec2_sg
+  ec2.set_image_id 'ami-26b9834e' # bitnami ruby stack
+  ec2.metadata = ec2_config.to_h
+  ec2.add_property :KeyName, ssh_key_param.get_reference
+  # update
+  ec2.commands += ['sudo apt-get update -y', "\n"]
+  # commands to install cfn-init
+  ec2.commands += [
+                   'sudo apt-get install -y python-setuptools', "\n",
+                   'easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz', "\n"
+                  ]
+  # run cfn-init. this kicks off the config we created before
+  ec2.commands += [
+                   "`which cfn-init` --region ",
+                   AwsTemplate.region_reference,
+                   ' -s ',
+                   AwsTemplate.stack_name_reference,
+                   ' -r ',
+                   ec2.logical_id, "\n"
+                  ]
+
+  template = AwsTemplate.new(:description => 'Create a single EC2 instance with a bitnami image to demonstrate the use of cfn-init. Install a sample github project and make it available on port 80, normal HTTP traffic')
+  template.add_resources [ec2, ec2_sg]
   template.add_parameter ssh_key_param
   return template
 end
