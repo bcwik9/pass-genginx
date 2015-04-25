@@ -191,7 +191,7 @@ def ec2_with_cfn_init_template
                    ec2.logical_id, "\n"
                   ]
 
-  template = AwsTemplate.new(:description => 'Create a single EC2 instance with a bitnami image to demonstrate the use of cfn-init. Install a sample github project and make it available on port 80, normal HTTP traffic')
+  template = AwsTemplate.new(:description => 'Create a single EC2 instance to demonstrate the use of cfn-init. download a github project, create files, and execute commands')
   template.add_resources [ec2, ec2_sg]
   template.add_parameter ssh_key_param
   return template
