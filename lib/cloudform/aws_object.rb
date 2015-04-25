@@ -1,7 +1,7 @@
 require_relative 'template'
 
 module AwsObject
-  attr_accessor :logical_id
+  attr_reader :logical_id
 
   def initialize opt
     @logical_id = opt[:logical_id] || set_default_logical_id  

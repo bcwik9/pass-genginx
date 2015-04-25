@@ -29,23 +29,8 @@ class AwsParameter
     ret[@logical_id][:Default] = @default if @default
     ret[@logical_id][:AllowedValues] = @allowed_values unless @allowed_values.empty?
     # iterate through all options keys and add them
-    capitalize_keys(@options).each do |k,v|
+    AwsTemplate.capitalize_keys(@options).each do |k,v|
       ret[@logical_id][k] = v
-    end
-
-    return ret
-  end
-
-  private
-
-  # capitalize all keys in a hash if necessary
-  def capitalize_keys h
-    ret = {}
-
-    h.each do |k,v|
-      new_key = k.to_s.split('')
-      new_key[0].upcase!
-      ret[new_key.join] = v
     end
 
     return ret

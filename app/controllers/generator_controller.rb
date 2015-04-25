@@ -1,22 +1,15 @@
 class GeneratorController < ApplicationController
-  require 'cloudform/template'
-  require 'cloudform/parameter'
-  require 'cloudform/ec2_resource'
-  require 'cloudform/security_group_resource'
-  require 'cloudform/wait_handle_resource'
-  require 'cloudform/wait_condition_resource'
-  require 'cloudform/eb_application_version_resource'
-  require 'cloudform/eb_application_resource'
-  require 'cloudform/eb_config_template_resource'
-  require 'cloudform/eb_environment_resource'
+  require 'cloudform/examples/templates'
 
   def index
   end
   
   def json_gen
-    eb_app_call
-    return
-
+    # use a template instead
+    #template = ec2_with_elasticache_template
+    #render :json => template.to_json
+    #return
+    
     # check github url param
     github_clone_url = params[:github_repo].first
     if github_clone_url.nil? or github_clone_url.empty?
@@ -39,7 +32,7 @@ class GeneratorController < ApplicationController
     # add it to the template
     template.add_resource sg
     # remove (default) access to port 22 since we don't need to SSH
-    sg.remove_access 22
+    sg.remove_access(:from => 22)
 
     # create x number of ec2 instances and associated wait handles
     1.times.each do |i|
@@ -52,7 +45,7 @@ class GeneratorController < ApplicationController
       # create new wait handle and wait condition
       handle = AwsWaitHandle.new
       cond = AwsWaitCondition.new
-      # associate wait condition/handle and ec2 
+      # associate wait condition/handle and ec2
       cond.set_handle handle
       cond.depends_on = ec2.logical_id
       # add commands to set up ec2 instance with rvm/rails/nginx/git etc
@@ -91,39 +84,4 @@ class GeneratorController < ApplicationController
     #send_data template.to_json, filename: "#{github_project_name}.json", type: :json
   end
 
-  def eb_app_call
-secret_key_param = AwsParameter.new(:logical_id => "SecretKeyBase", :description => "Rails secret key base for production", :default => "CHANGEME")
-  secret_key_param.add_option(:minLength, 1)
-
-  bucket_name_param = AwsParameter.new(:logical_id => "BucketName", :description => "S3 Bucket name where Rails project is stored")
-  bucket_name_param.add_option(:minLength, 1)
-
-  project_zip_param = AwsParameter.new(:logical_id => "ProjectZip", :description => "Rails project zip file")
-  project_zip_param.add_option(:minLength, 1)
-  
-  eb_app = AwsElasticBeanstalkApplication.new
-
-  eb_version = AwsElasticBeanstalkApplicationVersion.new
-  eb_version.set_application_name eb_app.get_reference
-  eb_version.set_source bucket_name_param.get_reference, project_zip_param.get_reference
-
-  eb_config = AwsElasticBeanstalkConfigurationTemplate.new
-  eb_config.set_application_name eb_app.get_reference
-  eb_config.enable_single_instance
-  eb_config.set_instance_type 't2.micro'
-  eb_config.set_stack_name "64bit Amazon Linux 2015.03 v1.3.0 running Ruby 2.2 (Passenger Standalone)"
-  eb_config.set_option "aws:elasticbeanstalk:application:environment", "SECRET_KEY_BASE", secret_key_param.get_reference
-
-  eb_env = AwsElasticBeanstalkEnvironment.new
-  eb_env.set_application_name eb_app.get_reference
-  eb_env.set_template_name eb_config.get_reference
-  eb_env.set_version_label eb_version.get_reference
-  
-  # create a blank template and add all the resources we need
-  template = AwsTemplate.new
-  template.add_resources [eb_app, eb_version, eb_config, eb_env]
-  template.add_parameters [secret_key_param, bucket_name_param, project_zip_param]
-
-    render :json => template.to_json
-  end
 end

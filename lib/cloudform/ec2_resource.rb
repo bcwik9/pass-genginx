@@ -31,6 +31,16 @@ class AwsEc2Instance
     }
   end
 
+  def set_image_id ami_id
+    raise "Must specify image id" if ami_id.nil? or ami_id.empty?
+    add_property :ImageId, ami_id
+  end
+
+  def set_instance_type type
+    raise "Must specify instance type" if type.nil? or type.empty?
+    add_property :InstanceType, type
+  end
+
   # add command to install RVM, ruby, rails, nginx, and passenger
   # works by pulling down script off github and running it
   # see https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh

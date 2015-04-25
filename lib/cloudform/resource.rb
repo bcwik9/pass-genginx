@@ -5,7 +5,7 @@ module AwsResource
   
   attr_accessor :type, :properties, :depends_on
   
-  ALLOWED_TYPES = ["AWS::EC2::Instance", "AWS::EC2::SecurityGroup", "AWS::CloudFormation::WaitConditionHandle", "AWS::CloudFormation::WaitCondition", "AWS::Route53::RecordSetGroup", "AWS::Route53::HostedZone", "AWS::ElasticBeanstalk::Application", "AWS::ElasticBeanstalk::ApplicationVersion", "AWS::ElasticBeanstalk::ConfigurationTemplate", "AWS::ElasticBeanstalk::Environment", "AWS::ElastiCache::CacheCluster", "AWS::EC2::SecurityGroup", "AWS::ElastiCache::ParameterGroup"]
+  ALLOWED_TYPES = ["AWS::EC2::Instance", "AWS::EC2::SecurityGroup", "AWS::CloudFormation::WaitConditionHandle", "AWS::CloudFormation::WaitCondition", "AWS::Route53::RecordSetGroup", "AWS::Route53::HostedZone", "AWS::ElasticBeanstalk::Application", "AWS::ElasticBeanstalk::ApplicationVersion", "AWS::ElasticBeanstalk::ConfigurationTemplate", "AWS::ElasticBeanstalk::Environment", "AWS::ElastiCache::CacheCluster", "AWS::ElastiCache::ParameterGroup", "AWS::ElastiCache::SecurityGroupIngress", "AWS::ElastiCache::SecurityGroup", "AWS::IAM::Policy", "AWS::IAM::Role", 'AWS::IAM::InstanceProfile']
   
   def initialize opt
     raise "Unsupported type: #{opt[:type]}" unless ALLOWED_TYPES.include? opt[:type]
@@ -21,9 +21,8 @@ module AwsResource
 
   def add_property key, value
     raise "Must specify valid key and value" if key.nil? or key.empty? or value.nil?
-    new_key = k.to_s.split('')
-    new_key[0].upcase!
-    @properties[new_key.join] = value
+    new_key = AwsTemplate.capitalize_symbol key
+    @properties[new_key] = value
   end
 
   def to_h

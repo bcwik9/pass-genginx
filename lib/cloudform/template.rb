@@ -39,6 +39,46 @@ class AwsTemplate
   def add_parameters parameters
     parameters.each { |p| add_parameter p }
   end
+
+  def self.generate_statement opt={}
+    options = capitalize_keys opt
+    raise 'Must specify action' unless options[:Action]
+    options[:Effect] = 'Allow' if options[:Effect].nil? or options[:Effect].empty?
+
+    {
+      :Statement => [options]
+    }
+  end
+  
+  def self.generate_reference ref
+    {
+      :Ref => ref
+    }
+  end
+
+  def self.region_reference
+    generate_reference "AWS::Region"
+  end
+
+  # capitalize first letter of all keys in a hash
+  def self.capitalize_keys h
+    ret = {}
+
+    h.each do |k,v|
+      new_key = capitalize_symbol k
+      ret[new_key] = v
+    end
+
+    return ret
+  end
+
+  # capitalize first letter of a symbol
+  def self.capitalize_symbol s
+    return '' if s.empty?
+    new_string = s.to_s.split ''
+    new_string[0].upcase!
+    new_string.join.to_sym
+  end
   
   # takes a list of AWS objects, each with their own to_h method, and
   # returns a hash representaion of the objects

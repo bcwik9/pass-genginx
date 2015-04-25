@@ -1,4 +1,5 @@
 require_relative 'resource'
+require_relative 'output'
 
 class AwsElastiCacheCluster
   include AwsResource
@@ -41,7 +42,16 @@ class AwsElastiCacheCluster
     @num_nodes = @properties[:PreferredAvailabilityZones].size
   end
 
+  def generate_outputs
+    return [] if @engine =~ /redis/i
+    [
+     AwsOutput.new(:logical_id => "#{@logical_id}Address", :description => "Address for ElastiCache Cluster #{@logical_id}", :value => get_att('ConfigurationEndpoint.Address')),
+     AwsOutput.new(:logical_id => "#{@logical_id}Port", :description => "Port for ElastiCache Cluster #{@logical_id}", :value => get_att('ConfigurationEndpoint.Port'))
+    ]
+  end
+
   def to_h
+    raise "WARNING: cloudformation currently only supports 1 redis node!" if @engine =~ /redis/i and @num_nodes != 1
     add_property :CacheNodeType, @node_type
     add_property :Engine, @engine
     add_property :NumCacheNodes, @num_nodes.to_s
