@@ -9,8 +9,9 @@ class GeneratorController < ApplicationController
     #template = ec2_with_elasticache_template
     #template = ec2_with_cfn_init_template
     #template = basic_ec2_with_sg_template
-    #render :json => template.to_json
-    #return
+    template = ec2_codedeploy_template
+    render :json => template.to_json
+    return
     
     # check github url param
     github_clone_url = params[:github_repo].first

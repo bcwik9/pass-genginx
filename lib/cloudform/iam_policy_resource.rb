@@ -3,19 +3,19 @@ require_relative 'resource'
 class AwsIamPolicy
   include AwsResource
   
-  attr_accessor :name_role, :roles
+  attr_accessor :roles
   
   def initialize opt={}
     opt[:type] = 'AWS::IAM::Policy'
     super opt
     @roles = opt[:roles] || []
-    set_policy_name opt[:name_role]
+    set_policy_name opt[:name]
     set_policy_document opt
   end
 
-  def set_policy_name role
-    role || raise('Must specify a IAM Role for the policy name!')
-    @name_role = role
+  def set_policy_name name
+    name ||= 'defaultPolicyName'
+    add_property :PolicyName, name
   end
   
   def add_role role
@@ -37,7 +37,6 @@ class AwsIamPolicy
 
   def to_h
     add_property :Roles, @roles unless @roles.empty?
-    add_property :PolicyName, @name_role.logical_id
     super
   end
 end

@@ -48,15 +48,16 @@ class AwsCloudFormationInit
       @name = opt[:name] || 'defaultConfig'
       @groups = opt[:groups] || {}
       @users = opt[:users] || {}
-      @services = opt[:services] || {}
+      clear_services
+      add_services(opt[:services] || [])
       clear_sources
-      add_sources opt[:sources]
+      add_sources(opt[:sources] || [])
       clear_packages
-      add_packages opt[:packages]
+      add_packages(opt[:packages] || [])
       clear_files
-      add_files opt[:files]
+      add_files(opt[:files] || [])
       clear_commands
-      add_commands opt[:commands]
+      add_commands(opt[:commands] || [])
     end
 
     def add_command opt={}
@@ -143,16 +144,30 @@ class AwsCloudFormationInit
     def clear_sources
       @sources = {}
     end
+
+    def add_service opt={}
+      name = opt[:name] || raise('Must specify service name')
+      opt.delete :name
+
+      @services[name] = opt      
+    end
+
+    def add_services services=[]
+      services.each { |service| add_service service }
+    end
+    
+    def clear_services
+      @services = {}
+    end
     
     def to_h
-      raise 'Must specify at least one command' if @commands.empty?
       ret = {}
       ret[:packages] = @packages unless @packages.empty?
       ret[:groups] = @groups unless @groups.empty?
       ret[:users] = @users unless @users.empty?
       ret[:sources] = @sources unless @sources.empty?
       ret[:files] = @files unless @files.empty?
-      ret[:commands] = @commands
+      ret[:commands] = @commands unless @commands.empty?
       ret[:services] = @services unless @services.empty?
       return ret
     end

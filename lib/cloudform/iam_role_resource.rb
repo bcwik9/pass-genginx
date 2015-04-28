@@ -18,6 +18,7 @@ class AwsIamRole
       :principal => opt[:princpal] || { :Service => opt[:service] },
       :effect => opt[:effect]
     }
+    options[:sid] = opt[:sid] if opt[:sid]
 
     add_property :AssumeRolePolicyDocument, AwsTemplate.generate_statement(options)
   end
