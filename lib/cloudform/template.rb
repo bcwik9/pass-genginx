@@ -45,19 +45,20 @@ class AwsTemplate
     raise 'Must specify action' unless options[:Action]
     options[:Effect] = 'Allow' if options[:Effect].nil? or options[:Effect].empty?
 
-    {
-      :Statement => [options]
-    }
+    { :Statement => [options] }
   end
   
   def self.generate_reference ref
-    {
-      :Ref => ref
-    }
+    { :Ref => ref }
   end
 
   def self.region_reference
     generate_reference "AWS::Region"
+  end
+
+  # specify all availability zones for the region in which the stack is created
+  def self.availability_zones
+    { 'Fn::GetAZs' => '' }
   end
 
   def self.stack_name_reference

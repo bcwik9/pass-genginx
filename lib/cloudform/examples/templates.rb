@@ -15,6 +15,10 @@ require_relative '../iam_role_resource'
 require_relative '../wait_condition_resource'
 require_relative '../wait_handle_resource'
 require_relative '../cloudformation_init'
+require_relative '../autoscaling_group_resource'
+require_relative '../autoscaling_policy_resource'
+require_relative '../elb_balancer_resource'
+require_relative '../cloudwatch_alarm_resource'
 
 # a simple ec2 server with security group
 # asks for a SSH key as only parameter
@@ -300,5 +304,118 @@ def ec2_codedeploy_template
   return template
 end
 
+def autoscaling_with_codedeploy_template
+  # these tags are what let codedeploy know which instances to deploy to
+  #codedeploy_tags = [{ :Key => 'defaultCodedeployKey', :Value => 'defaultCodedeployValue' }]
+  
+  ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
+
+  instance_role = AwsIamRole.new(:logical_id => 'IamInstanceRole')
+  instance_policy = AwsIamPolicy.new(:name => instance_role.logical_id, :action => ["autoscaling:Describe*", "cloudformation:Describe*", "cloudformation:GetTemplate", "s3:Get*"], :logical_id => 'IamInstancePolicy')
+  instance_policy.add_role instance_role
+  instance_profile = AwsIamInstanceProfile.new(:logical_id => 'IamInstanceProfile')
+  instance_profile.add_role instance_role
+  
+  codedeploy_role = AwsIamRole.new(
+                                   :logical_id => 'codedeployRole',
+                                   :service => [
+                                                'codedeploy.us-east-1.amazonaws.com',
+                                                'codedeploy.us-west-2.amazonaws.com'                                      
+                                               ],
+                                   :sid => '1'
+                                   )
+  codedeploy_policy = AwsIamPolicy.new(
+                                       :logical_id => 'codedeployPolicy',
+                                       :name => 'CodeDeployPolicy',
+                                       :action => ["autoscaling:CompleteLifecycleAction", "autoscaling:DeleteLifecycleHook", "autoscaling:DescribeLifecycleHooks", "autoscaling:DescribeAutoScalingGroups", "autoscaling:PutLifecycleHook", "autoscaling:RecordLifecycleActionHeartbeat", "ec2:Describe*"]
+                                       )
+  codedeploy_policy.add_role codedeploy_role
+
+  # create new wait handle and wait condition (15 minute timeout)
+  handle = AwsWaitHandle.new
+  cond = AwsWaitCondition.new(:timeout => 900)
+
+  ec2_sg = AwsSecurityGroup.new
+
+  #ec2_config = AwsCloudFormationInit.new
+  #ec2_config.add_config(
+  #                      :services => [
+  #                                    {
+  #                                      :name => 'sysvint',
+  #                                      'codedeploy-agent' => {
+  #                                        :enabled => true,
+  #                                        :ensureRunning => true
+  #                                      }
+  #                                    }
+  #                                   ]
+  #                      )
+
+  ec2 = AwsEc2Instance.new # pretend this is a launch config
+  ec2.type = 'AWS::AutoScaling::LaunchConfiguration'
+  ec2.set_image_id 'ami-26b9834e' # bitnami AMI
+  ec2.add_security_group ec2_sg
+  ec2.add_property :KeyName, ssh_key_param.get_reference
+  #ec2.add_property :Tags, codedeploy_tags
+  ec2.add_property :IamInstanceProfile, instance_profile.get_reference
+  #ec2.metadata = ec2_config.to_h
+  # update
+  ec2.commands += [ 'sudo apt-get update -y', "\n" ]
+  # stop all services that bitnami installed
+  ec2.commands += [ 'sudo /opt/bitnami/ctlscript.sh stop', "\n" ]
+  # install aws cli tools and ruby and libsqlite3-dev
+  ec2.commands += [ "sudo apt-get install -y awscli ruby2.0 libsqlite3-dev", "\n" ]
+  #install codedeploy agent
+  ec2.commands += [
+                   "sudo aws s3 cp s3://aws-codedeploy-",
+                   AwsTemplate.region_reference,
+                   "/latest/install /tmp/ --region ",
+                   AwsTemplate.region_reference, "\n",
+                   'sudo chmod +x /tmp/install', "\n",
+                   'sudo -i /tmp/install auto', "\n"
+                  ]
+  # commands to install cfn-init
+  #ec2.commands += [
+  #                 'sudo apt-get install -y python-setuptools', "\n",
+  #                 'easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz', "\n"
+  #                ]
+  
+  # run cfn-init. this kicks off the config we created before
+  #ec2.commands += [
+  #                 "`which cfn-init` --region ",
+  #                 AwsTemplate.region_reference,
+  #                 ' -s ',
+  #                 AwsTemplate.stack_name_reference,
+  #                 ' -r ',
+  #                 ec2.logical_id, "\n"
+  #                ]
+  # notify that everything is done
+  ec2.commands += [
+                   "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                   "\"Reason\" : \"Server is ready\",",
+                   "\"UniqueId\" : \"#{ec2.logical_id}\",",
+                   "\"Data\" : \"Done\"}' ",
+                   "\"", handle.get_reference,"\"\n"
+                  ]
+  
+  lb = AwsElasticLoadBalancer.new
+  lb.add_listener(:port => 80)
+  lb.add_health_check(:target => 'HTTP:80/')
+  scaling_group = AwsAutoScalingGroup.new(:load_balancers => [lb], :launch_config => ec2)
+  scaling_group.set_max_size 2
+  scaling_policy = AwsAutoScalingPolicy.new(:group => scaling_group)
+  alarm = AwsCloudWatchAlarm.new
+  alarm.add_alarm_action scaling_policy
+  alarm.add_dimension 'AutoScalingGroupName', scaling_group.get_reference
+  
+  # associate wait condition/handle and ec2
+  cond.set_handle handle
+  cond.depends_on = ec2.logical_id
+
+  template = AwsTemplate.new(:description => "autoscaling group ready to be updated via codedeploy")
+  template.add_resources [ec2, ec2_sg, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, handle, cond, lb, scaling_group, scaling_policy, alarm]
+  template.add_parameter ssh_key_param
+  return template
+end
+
 # print out the template json like so:
-puts ec2_with_elasticache_template.to_json
+puts autoscaling_with_codedeploy_template.to_json
