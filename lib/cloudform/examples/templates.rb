@@ -305,9 +305,6 @@ def ec2_codedeploy_template
 end
 
 def autoscaling_with_codedeploy_template
-  # these tags are what let codedeploy know which instances to deploy to
-  #codedeploy_tags = [{ :Key => 'defaultCodedeployKey', :Value => 'defaultCodedeployValue' }]
-  
   ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
 
   instance_role = AwsIamRole.new(:logical_id => 'IamInstanceRole')
@@ -320,7 +317,7 @@ def autoscaling_with_codedeploy_template
                                    :logical_id => 'codedeployRole',
                                    :service => [
                                                 'codedeploy.us-east-1.amazonaws.com',
-                                                'codedeploy.us-west-2.amazonaws.com'                                      
+                                                'codedeploy.us-west-2.amazonaws.com'
                                                ],
                                    :sid => '1'
                                    )
