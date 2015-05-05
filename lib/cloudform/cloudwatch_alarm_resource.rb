@@ -31,7 +31,7 @@ class AwsCloudWatchAlarm
   end
 
   def set_threshold threshold
-    threshold ||= 10
+    threshold ||= 70
     add_property :Threshold, threshold
   end
   
