@@ -414,5 +414,79 @@ def autoscaling_with_codedeploy_template
   return template
 end
 
+def buster_dev_template
+  template = AwsTemplate.new(:description => 'Basic cloudformation template with a single ec2 instance and security group with ports 22, 80, and 443 open')
+  
+  # user will pass in their SSH key at runtime
+  ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
+
+  # ask for packages that should be installed via apt-get
+  packages_param = AwsParameter.new(:logical_id => 'PackagesToInstall', :description => "Packages to install via 'apt-get install'")
+
+  # create new wait handle and wait condition (15 minute timeout)
+  handle = AwsWaitHandle.new
+  cond = AwsWaitCondition.new(:timeout => 900)
+  
+  # basic security group with ports 22, 80, and 443 open by default
+  sg = AwsSecurityGroup.new
+
+  # ec2 instance
+  ec2 = AwsEc2Instance.new
+  ec2.add_security_group sg # associate security group with ec2 instance
+  ec2.add_property :KeyName, ssh_key_param.get_reference # add ssh key param
+  # install dependencies and ruby/rvm/rails
+  ec2.commands += [
+                   "export HOME=`pwd`" ,"\n",
+                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 postgresql postgresql-contrib libpq-dev", "\n",
+                   "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh ", packages_param.get_reference, "\n"
+                  ]
+  # install redis
+  ec2.commands += [
+                   "sudo apt-get install -y build-essential tcl8.5", "\n",
+                   "wget http://download.redis.io/releases/redis-2.8.9.tar.gz", "\n",
+                   "tar xzf redis-2.8.9.tar.gz", "\n",
+                   "cd redis-2.8.9", "\n",
+                   "make", "\n",
+                   "sudo make install", "\n",
+                   "cd utils", "\n",
+                   "sudo ./install_server.sh", "\n"
+                  ]
+  # set up postgres with a user
+  ec2.commands += [
+                   "sudo apt-get install -y postgresql postgresql-contrib", "\n",
+                   "sudo -i -u postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n",
+                  ]
+  # clone and install git repo
+  ec2.commands += [
+                   "cd /home/ubuntu", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo git clone https://github.com/TanookiLabs/bustr.git", "\n",
+                   "cd bustr", "\n",
+                   "cp config/database.yml.example config/database.yml", "\n",
+                   "cp config/application.yml.example config/application.yml", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
+                   #"bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare", "\n",
+                   "sudo chmod -R 777 /home/ubuntu/bustr", "\n",
+                   #"bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n"
+                  ]
+  # notify that everything is done
+  ec2.commands += [
+                   "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
+                   "\"Reason\" : \"Server is ready\",",
+                   "\"UniqueId\" : \"#{ec2.logical_id}\",",
+                   "\"Data\" : \"Done\"}' ",
+                   "\"", handle.get_reference,"\"\n"
+                  ]
+
+  # associate wait condition/handle and ec2
+  cond.set_handle handle
+  cond.depends_on = ec2.logical_id
+
+  # add resources and parameter to our template
+  template.add_resources [ec2, sg, cond, handle]
+  template.add_parameters [ssh_key_param, packages_param]
+  
+  return template
+end
+
 # print out the template json like so:
 puts autoscaling_with_codedeploy_template.to_json

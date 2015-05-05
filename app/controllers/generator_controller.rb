@@ -10,7 +10,8 @@ class GeneratorController < ApplicationController
     #template = ec2_with_cfn_init_template
     #template = basic_ec2_with_sg_template
     #template = ec2_codedeploy_template
-    template = autoscaling_with_codedeploy_template
+    #template = autoscaling_with_codedeploy_template
+    template = buster_dev_template
     render :json => template.to_json
     return
     
