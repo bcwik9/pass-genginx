@@ -417,11 +417,13 @@ end
 def buster_dev_template
   template = AwsTemplate.new(:description => 'Basic cloudformation template with a single ec2 instance and security group with ports 22, 80, and 443 open')
   
+  # params
   # user will pass in their SSH key at runtime
   ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
-
   # ask for packages that should be installed via apt-get
   packages_param = AwsParameter.new(:logical_id => 'PackagesToInstall', :description => "Packages to install via 'apt-get install'")
+  # ask for github username and password required to clone git repo
+  github_param = AwsParameter.new(:logical_id => 'GithubAccount', :description => "Github username and password to clone repository", :default => 'username:password')
 
   # create new wait handle and wait condition (15 minute timeout)
   handle = AwsWaitHandle.new
@@ -429,16 +431,45 @@ def buster_dev_template
   
   # basic security group with ports 22, 80, and 443 open by default
   sg = AwsSecurityGroup.new
-
+  
+  # commands to execute when cfn init runs
+  ec2_config = AwsCloudFormationInit.new
+  database_yml_content = AwsTemplate.join ([
+                                            "development:", "\n",
+                                            "  adapter: postgresql", "\n",
+                                            "  encoding: unicode", "\n",
+                                            "  database: buster_dev", "\n",
+                                            "  host: localhost", "\n",
+                                            "  username: busterapp", "\n",
+                                            "  password: password", "\n",
+                                            "\n",
+                                            "test:", "\n",
+                                            "  adapter: postgresql", "\n",
+                                            "  encoding: unicode", "\n",
+                                            "  database: buster_test", "\n",
+                                            "  host: localhost", "\n",
+                                            "  username: busterapp", "\n",
+                                            "  password: password", "\n"
+                                           ])
+  ec2_config.add_config(
+                        # create some files from content and the web
+                        :files => [{
+                                     :content => database_yml_content,
+                                     :location => '/home/ubuntu/bustr/config/database.yml'
+                                   }]
+                        )
+  
   # ec2 instance
   ec2 = AwsEc2Instance.new
   ec2.add_security_group sg # associate security group with ec2 instance
   ec2.add_property :KeyName, ssh_key_param.get_reference # add ssh key param
+  # add stuff for cfn init
+  ec2.metadata = ec2_config.to_h
   # install dependencies and ruby/rvm/rails
   ec2.commands += [
                    "export HOME=`pwd`" ,"\n",
-                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 postgresql postgresql-contrib libpq-dev", "\n",
-                   "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh ", packages_param.get_reference, "\n"
+                   "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh ", packages_param.get_reference, "\n",
+                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 postgresql postgresql-contrib libpq-dev qt5-default libqt5webkit5-dev", "\n"
                   ]
   # install redis
   ec2.commands += [
@@ -456,17 +487,43 @@ def buster_dev_template
                    "sudo apt-get install -y postgresql postgresql-contrib", "\n",
                    "sudo -i -u postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n",
                   ]
-  # clone and install git repo
+  # clone git repo
   ec2.commands += [
                    "cd /home/ubuntu", "\n",
-                   "bash --login /usr/local/rvm/bin/rvmsudo git clone https://github.com/TanookiLabs/bustr.git", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo git clone https://",
+                   github_param.get_reference,
+                   "@github.com/TanookiLabs/bustr.git", "\n",
+                  ]
+  # commands to install cfn-init
+  ec2.commands += [
+                   'sudo apt-get install -y python-setuptools', "\n",
+                   'easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz', "\n"
+                  ]
+  # run cfn-init. this kicks off the config we created before
+  ec2.commands += [
+                   "`which cfn-init` --region ",
+                   AwsTemplate.region_reference,
+                   ' -s ',
+                   AwsTemplate.stack_name_reference,
+                   ' -r ',
+                   ec2.logical_id, "\n"
+                  ]
+  # use rvm to install/use correct ruby version
+  ec2.commands += [
+                   "bash --login /usr/local/rvm/bin/rvm install 2.2.1", "\n",
+                   "export PATH=\"$PATH:/usr/local/rvm/bin/rvm\"", "\n",
+                   "bash --login /usr/local/rvm/bin/rvm use 2.2.1", "\n"
+                  ]
+  # set up and run sidekiq/rails server
+  ec2.commands += [
                    "cd bustr", "\n",
-                   "cp config/database.yml.example config/database.yml", "\n",
-                   "cp config/application.yml.example config/application.yml", "\n",
+                   "cp config/application.example.yml config/application.yml", "\n",
+                   'sed -i \'s/config\.action_controller\.asset_host/#config\.action_controller\.asset_host/\' config/environments/development.rb', "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
-                   #"bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare db:seed assets:precompile", "\n",
                    "sudo chmod -R 777 /home/ubuntu/bustr", "\n",
-                   #"bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d", "\n"
+                   "bash --login /usr/local/rvm/bin/rvmsudo bundle exec sidekiq -d -L log/sidekiq.log", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d -p 80 > log/server.log", "\n"
                   ]
   # notify that everything is done
   ec2.commands += [
@@ -483,10 +540,10 @@ def buster_dev_template
 
   # add resources and parameter to our template
   template.add_resources [ec2, sg, cond, handle]
-  template.add_parameters [ssh_key_param, packages_param]
+  template.add_parameters [ssh_key_param, packages_param, github_param]
   
   return template
 end
 
 # print out the template json like so:
-puts autoscaling_with_codedeploy_template.to_json
+puts buster_dev_template.to_json
