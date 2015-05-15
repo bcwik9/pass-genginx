@@ -425,9 +425,9 @@ def buster_dev_template
   # ask for github username and password required to clone git repo
   github_param = AwsParameter.new(:logical_id => 'GithubAccount', :description => "Github username and password to clone repository", :default => 'username:password')
 
-  # create new wait handle and wait condition (15 minute timeout)
+  # create new wait handle and wait condition (20 minute timeout)
   handle = AwsWaitHandle.new
-  cond = AwsWaitCondition.new(:timeout => 900)
+  cond = AwsWaitCondition.new(:timeout => 1200)
   
   # basic security group with ports 22, 80, and 443 open by default
   sg = AwsSecurityGroup.new
