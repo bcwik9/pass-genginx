@@ -415,7 +415,7 @@ def autoscaling_with_codedeploy_template
 end
 
 def buster_dev_template
-  template = AwsTemplate.new(:description => 'Basic cloudformation template with a single ec2 instance and security group with ports 22, 80, and 443 open')
+  template = AwsTemplate.new(:description => 'Buster development environment')
   
   # params
   # user will pass in their SSH key at runtime
@@ -431,6 +431,7 @@ def buster_dev_template
   
   # basic security group with ports 22, 80, and 443 open by default
   sg = AwsSecurityGroup.new
+  sg.add_access(:from => 3000) # also add 3000 for ruby development
   
   # commands to execute when cfn init runs
   ec2_config = AwsCloudFormationInit.new
