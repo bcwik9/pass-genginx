@@ -417,13 +417,21 @@ end
 def buster_dev_template
   template = AwsTemplate.new(:description => 'Buster development environment')
   
-  # params
+  # Params
   # user will pass in their SSH key at runtime
   ssh_key_param = AwsParameter.new(:logical_id => "SshKeyName", :description => "Name of an existing EC2 KeyPair to enable SSH access to the web server", :type => "AWS::EC2::KeyPair::KeyName")
   # ask for packages that should be installed via apt-get
   packages_param = AwsParameter.new(:logical_id => 'PackagesToInstall', :description => "Packages to install via 'apt-get install'")
   # ask for github username and password required to clone git repo
   github_param = AwsParameter.new(:logical_id => 'GithubAccount', :description => "Github username and password to clone repository", :default => 'username:password')
+  # ask for github branch name
+  git_branch_param = AwsParameter.new(:logical_id => 'GithubBranch', :description => "Git branch to clone", :default => 'master')  
+  # ask for heroku API key
+  heroku_key_param = AwsParameter.new(:logical_id => 'HerokuAPIKey', :description => "Heroku user API key, which can be found under your profile on Heroku website")
+  # ask for heroku database user
+  heroku_database_user_param = AwsParameter.new(:logical_id => 'HerokuDatabaseUser', :description => "Heroku database user name")
+  # ask for heroku database URL
+  heroku_database_url_param = AwsParameter.new(:logical_id => 'HerokuDatabaseURL', :description => "Heroku database URL")
 
   # create new wait handle and wait condition (20 minute timeout)
   handle = AwsWaitHandle.new
@@ -434,12 +442,11 @@ def buster_dev_template
   sg.add_access(:from => 3000) # also add 3000 for ruby development
   
   # commands to execute when cfn init runs
-  ec2_config = AwsCloudFormationInit.new
   database_yml_content = AwsTemplate.join ([
                                             "development:", "\n",
                                             "  adapter: postgresql", "\n",
                                             "  encoding: unicode", "\n",
-                                            "  database: buster_dev", "\n",
+                                            "  database: buster_prod", "\n",
                                             "  host: localhost", "\n",
                                             "  username: busterapp", "\n",
                                             "  password: password", "\n",
@@ -452,11 +459,23 @@ def buster_dev_template
                                             "  username: busterapp", "\n",
                                             "  password: password", "\n"
                                            ])
+  netrc_content = AwsTemplate.join ([
+                                     "machine api.heroku.com", "\n",
+                                     "  login bengineer@buster.com", "\n",
+                                     "  password ", heroku_key_param.get_reference, "\n",
+                                     "machine git.heroku.com", "\n",
+                                     "  login bengineer@buster.com", "\n",
+                                     "  password ", heroku_key_param.get_reference, "\n"
+                                    ])
+  ec2_config = AwsCloudFormationInit.new
   ec2_config.add_config(
-                        # create some files from content and the web
                         :files => [{
                                      :content => database_yml_content,
                                      :location => '/home/ubuntu/bustr/config/database.yml'
+                                   },
+                                  {
+                                     :content => netrc_content,
+                                     :location => '/home/ubuntu/.netrc'
                                    }]
                         )
   
@@ -491,8 +510,8 @@ def buster_dev_template
   # clone git repo
   ec2.commands += [
                    "cd /home/ubuntu", "\n",
-                   "bash --login /usr/local/rvm/bin/rvmsudo git clone https://",
-                   github_param.get_reference,
+                   "bash --login /usr/local/rvm/bin/rvmsudo git clone -b ", git_branch_param.get_reference,
+                   " https://", github_param.get_reference,
                    "@github.com/TanookiLabs/bustr.git", "\n",
                   ]
   # commands to install cfn-init
@@ -515,13 +534,25 @@ def buster_dev_template
                    "export PATH=\"$PATH:/usr/local/rvm/bin/rvm\"", "\n",
                    "bash --login /usr/local/rvm/bin/rvm use 2.2.1", "\n"
                   ]
-  # set up and run sidekiq/rails server
+  # set up database initially
   ec2.commands += [
                    "cd bustr", "\n",
                    "cp config/application.example.yml config/application.yml", "\n",
                    'sed -i \'s/config\.action_controller\.asset_host/#config\.action_controller\.asset_host/\' config/environments/development.rb', "\n",
-                   "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n",
-                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare db:seed assets:precompile", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n"
+                  ]
+  # pull in production data from heroku
+  ec2.commands += [
+                   "wget -qO- https://toolbelt.heroku.com/install-ubuntu.sh | sh", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:test:prepare assets:precompile", "\n",
+                   "heroku pg:pull DATABASE_URL buster_prod --app buster-prod", "\n",
+                   "sudo -iu postgres psql -c \"create role ", heroku_database_user_param.get_reference ," with superuser login createdb password NULL;\"", "\n",
+                   "sudo -iu postgres pg_dump -Fc -d ", heroku_database_url_param.get_reference," > ~postgres/prod_dump.sql", "\n",
+                   "sudo -iu postgres pg_restore prod_dump.sql -d buster_prod", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n"
+                  ]
+  # run sidekiq/rails server
+  ec2.commands += [
                    "sudo chmod -R 777 /home/ubuntu/bustr", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle exec sidekiq -d -L log/sidekiq.log", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d -p 80 > log/server.log", "\n"
@@ -541,7 +572,7 @@ def buster_dev_template
 
   # add resources and parameter to our template
   template.add_resources [ec2, sg, cond, handle]
-  template.add_parameters [ssh_key_param, packages_param, github_param]
+  template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param]
   
   return template
 end
