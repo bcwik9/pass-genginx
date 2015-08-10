@@ -520,7 +520,7 @@ def buster_dev_template
   ec2 = AwsEc2Instance.new
   ec2.add_security_group sg
   ec2.set_image_id "ami-d05e75b8"
-  ec2.set_instance_type "t2.micro"
+  ec2.set_instance_type "t2.small"
   ec2.add_property :KeyName, ssh_key_param.get_reference
   ec2.add_property :Tags, codedeploy_tags
   ec2.add_property :IamInstanceProfile, instance_profile.get_reference
