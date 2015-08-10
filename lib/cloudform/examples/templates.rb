@@ -273,8 +273,7 @@ def ec2_codedeploy_template
   ec2.commands += [
                    'sudo apt-get install -y python-setuptools', "\n",
                    'easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz', "\n"
-                  ]
-  
+                  ]  
   # run cfn-init. this kicks off the config we created before
   ec2.commands += [
                    "`which cfn-init` --region ",
@@ -296,7 +295,6 @@ def ec2_codedeploy_template
   # associate wait condition/handle and ec2
   cond.set_handle handle
   cond.depends_on = ec2.logical_id
-  
 
   template = AwsTemplate.new(:description => "ec2 instance ready to be updated via codedeploy")
   template.add_resources [ec2, ec2_sg, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, handle, cond]
@@ -426,12 +424,38 @@ def buster_dev_template
   github_param = AwsParameter.new(:logical_id => 'GithubAccount', :description => "Github username and password to clone repository", :default => 'username:password')
   # ask for github branch name
   git_branch_param = AwsParameter.new(:logical_id => 'GithubBranch', :description => "Git branch to clone", :default => 'master')  
+  # ask for heroku user email
+  heroku_email_param = AwsParameter.new(:logical_id => 'HerokuEmail', :description => "Heroku user email associated with your account")  
   # ask for heroku API key
   heroku_key_param = AwsParameter.new(:logical_id => 'HerokuAPIKey', :description => "Heroku user API key, which can be found under your profile on Heroku website")
   # ask for heroku database user
   heroku_database_user_param = AwsParameter.new(:logical_id => 'HerokuDatabaseUser', :description => "Heroku database user name")
   # ask for heroku database URL
   heroku_database_url_param = AwsParameter.new(:logical_id => 'HerokuDatabaseURL', :description => "Heroku database URL")
+
+  # CodeDeploy
+  # these tags are what let codedeploy know which instances to deploy to
+  codedeploy_tags = [{ :Key => 'BusterCodedeployKey', :Value => 'BusterCodedeployValue' }]
+
+  instance_role = AwsIamRole.new(:logical_id => 'IamInstanceRole')
+  instance_policy = AwsIamPolicy.new(:name => instance_role.logical_id, :action => ["autoscaling:Describe*", "cloudformation:Describe*", "cloudformation:GetTemplate", "s3:Get*"], :logical_id => 'IamInstancePolicy')
+  instance_policy.add_role instance_role
+  instance_profile = AwsIamInstanceProfile.new(:logical_id => 'IamInstanceProfile')
+  instance_profile.add_role instance_role
+  codedeploy_role = AwsIamRole.new(
+                                   :logical_id => 'codedeployRole',
+                                   :service => [
+                                                'codedeploy.us-east-1.amazonaws.com',
+                                                'codedeploy.us-west-2.amazonaws.com'                                      
+                                               ],
+                                   :sid => '1'
+                                   )
+  codedeploy_policy = AwsIamPolicy.new(
+                                       :logical_id => 'codedeployPolicy',
+                                       :name => 'CodeDeployPolicy',
+                                       :action => ["autoscaling:CompleteLifecycleAction", "autoscaling:DeleteLifecycleHook", "autoscaling:DescribeLifecycleHooks", "autoscaling:DescribeAutoScalingGroups", "autoscaling:PutLifecycleHook", "autoscaling:RecordLifecycleActionHeartbeat", "ec2:Describe*"]
+                                       )
+  codedeploy_policy.add_role codedeploy_role
 
   # create new wait handle and wait condition (20 minute timeout)
   handle = AwsWaitHandle.new
@@ -461,10 +485,10 @@ def buster_dev_template
                                            ])
   netrc_content = AwsTemplate.join ([
                                      "machine api.heroku.com", "\n",
-                                     "  login bengineer@buster.com", "\n",
+                                     "  login ", heroku_email_param.get_reference, "\n",
                                      "  password ", heroku_key_param.get_reference, "\n",
                                      "machine git.heroku.com", "\n",
-                                     "  login bengineer@buster.com", "\n",
+                                     "  login ", heroku_email_param.get_reference, "\n",
                                      "  password ", heroku_key_param.get_reference, "\n"
                                     ])
   ec2_config = AwsCloudFormationInit.new
@@ -473,23 +497,40 @@ def buster_dev_template
                                      :content => database_yml_content,
                                      :location => '/home/ubuntu/bustr/config/database.yml'
                                    },
-                                  {
+                                   {
+                                     :content => database_yml_content,
+                                     :location => '/home/ubuntu/database.yml'
+                                   },
+                                   {
                                      :content => netrc_content,
                                      :location => '/home/ubuntu/.netrc'
-                                   }]
+                                   }],
+                        :services => [
+                                      {
+                                        :name => 'sysvint',
+                                        'codedeploy-agent' => {
+                                          :enabled => true,
+                                          :ensureRunning => true
+                                        }
+                                      }
+                                     ]
                         )
   
   # ec2 instance
   ec2 = AwsEc2Instance.new
-  ec2.add_security_group sg # associate security group with ec2 instance
-  ec2.add_property :KeyName, ssh_key_param.get_reference # add ssh key param
+  ec2.add_security_group sg
+  ec2.set_image_id "ami-d05e75b8"
+  ec2.set_instance_type "t2.micro"
+  ec2.add_property :KeyName, ssh_key_param.get_reference
+  ec2.add_property :Tags, codedeploy_tags
+  ec2.add_property :IamInstanceProfile, instance_profile.get_reference
   # add stuff for cfn init
   ec2.metadata = ec2_config.to_h
   # install dependencies and ruby/rvm/rails
   ec2.commands += [
                    "export HOME=`pwd`" ,"\n",
                    "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh ", packages_param.get_reference, "\n",
-                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 postgresql postgresql-contrib libpq-dev qt5-default libqt5webkit5-dev", "\n"
+                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 postgresql postgresql-contrib libpq-dev qt5-default libqt5webkit5-dev awscli libsqlite3-dev ruby2.0", "\n"
                   ]
   # install redis
   ec2.commands += [
@@ -505,7 +546,16 @@ def buster_dev_template
   # set up postgres with a user
   ec2.commands += [
                    "sudo apt-get install -y postgresql postgresql-contrib", "\n",
-                   "sudo -i -u postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n",
+                   "sudo -iu postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n",
+                  ]
+  #install codedeploy agent
+  ec2.commands += [
+                   "sudo aws s3 cp s3://aws-codedeploy-",
+                   AwsTemplate.region_reference,
+                   "/latest/install /tmp/ --region ",
+                   AwsTemplate.region_reference, "\n",
+                   'sudo chmod +x /tmp/install', "\n",
+                   'sudo -i /tmp/install auto', "\n"
                   ]
   # clone git repo
   ec2.commands += [
@@ -545,7 +595,7 @@ def buster_dev_template
   ec2.commands += [
                    "wget -qO- https://toolbelt.heroku.com/install-ubuntu.sh | sh", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:test:prepare assets:precompile", "\n",
-                   "heroku pg:pull DATABASE_URL buster_prod --app buster-prod", "\n",
+                   #"heroku pg:pull DATABASE_URL buster_prod --app buster-prod", "\n",
                    "sudo -iu postgres psql -c \"create role ", heroku_database_user_param.get_reference ," with superuser login createdb password NULL;\"", "\n",
                    "sudo -iu postgres pg_dump -Fc -d ", heroku_database_url_param.get_reference," > ~postgres/prod_dump.sql", "\n",
                    "sudo -iu postgres pg_restore prod_dump.sql -d buster_prod", "\n",
@@ -571,8 +621,8 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle]
-  template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy]
+  template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template
 end
