@@ -562,7 +562,7 @@ def buster_dev_template
                    "cd /home/ubuntu", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo git clone -b ", git_branch_param.get_reference,
                    " https://", github_param.get_reference,
-                   "@github.com/TanookiLabs/bustr.git", "\n",
+                   "@github.com/BustrInc/bustr.git", "\n",
                   ]
   # commands to install cfn-init
   ec2.commands += [
