@@ -499,14 +499,6 @@ def buster_dev_template
                                      :location => '/home/ubuntu/bustr/config/database.yml'
                                    },
                                    {
-                                     :content => database_yml_content,
-                                     :location => '/home/ubuntu/database.yml'
-                                   },
-                                   {
-                                     :content => 'deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main',
-                                     :location => '/etc/apt/sources.list.d/pgdg.list'
-                                   },
-                                   {
                                      :content => netrc_content,
                                      :location => '/home/ubuntu/.netrc'
                                    }],
@@ -550,6 +542,7 @@ def buster_dev_template
                   ]
   # set up postgres with a user
   ec2.commands += [
+                   "echo \"deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main\" > /etc/apt/sources.list.d/pgdg.list", "\n",
                    "wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -", "\n",
                    "sudo apt-get update", "\n",
                    "sudo apt-get install -y postgresql-9.4 postgresql-contrib", "\n",
