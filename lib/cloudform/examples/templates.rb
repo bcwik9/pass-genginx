@@ -19,6 +19,8 @@ require_relative '../autoscaling_group_resource'
 require_relative '../autoscaling_policy_resource'
 require_relative '../elb_balancer_resource'
 require_relative '../cloudwatch_alarm_resource'
+require_relative '../rds_resource'
+require_relative '../rds_security_group_resource'
 
 # a simple ec2 server with security group
 # asks for a SSH key as only parameter

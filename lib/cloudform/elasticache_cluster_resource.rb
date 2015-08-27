@@ -6,7 +6,7 @@ class AwsElastiCacheCluster
   
   attr_accessor :node_type, :engine, :num_nodes
 
-  VALID_ENGINES = ['redis', 'memcached']
+  VALID_ENGINES = %w[ redis memcached ]
   
   def initialize opt={}
     opt[:type] = "AWS::ElastiCache::CacheCluster"
