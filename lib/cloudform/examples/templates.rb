@@ -464,6 +464,7 @@ def buster_dev_template
   # basic security group with ports 22, 80, and 443 open by default
   sg = AwsSecurityGroup.new
   sg.add_access(:from => 3000) # also add 3000 for ruby development
+  sg.add_access(:from => 1080) # also add 1080 for mailcatcher
   
   # commands to execute when cfn init runs
   database_yml_content = AwsTemplate.join ([
@@ -502,6 +503,10 @@ def buster_dev_template
                                      :location => '/home/ubuntu/database.yml'
                                    },
                                    {
+                                     :content => 'deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main',
+                                     :location => '/etc/apt/sources.list.d/pgdg.list'
+                                   },
+                                   {
                                      :content => netrc_content,
                                      :location => '/home/ubuntu/.netrc'
                                    }],
@@ -530,7 +535,7 @@ def buster_dev_template
   ec2.commands += [
                    "export HOME=`pwd`" ,"\n",
                    "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh ", packages_param.get_reference, "\n",
-                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 postgresql postgresql-contrib libpq-dev qt5-default libqt5webkit5-dev awscli libsqlite3-dev ruby2.0", "\n"
+                   "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 libpq-dev qt5-default libqt5webkit5-dev awscli libsqlite3-dev ruby2.0", "\n"
                   ]
   # install redis
   ec2.commands += [
@@ -545,8 +550,10 @@ def buster_dev_template
                   ]
   # set up postgres with a user
   ec2.commands += [
-                   "sudo apt-get install -y postgresql postgresql-contrib", "\n",
-                   "sudo -iu postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n",
+                   "wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -", "\n",
+                   "sudo apt-get update", "\n",
+                   "sudo apt-get install -y postgresql-9.4 postgresql-contrib", "\n",
+                   "sudo -iu postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n"
                   ]
   #install codedeploy agent
   ec2.commands += [
