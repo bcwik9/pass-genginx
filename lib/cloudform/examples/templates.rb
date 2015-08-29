@@ -467,54 +467,13 @@ def buster_dev_template
   sg = AwsSecurityGroup.new
   sg.add_access(:from => 3000) # also add 3000 for ruby development
   sg.add_access(:from => 1080) # also add 1080 for mailcatcher
-  
-  # commands to execute when cfn init runs
-  database_yml_content = AwsTemplate.join ([
-                                            "development:", "\n",
-                                            "  adapter: postgresql", "\n",
-                                            "  encoding: unicode", "\n",
-                                            "  database: buster_prod", "\n",
-                                            "  host: localhost", "\n",
-                                            "  username: busterapp", "\n",
-                                            "  password: password", "\n",
-                                            "\n",
-                                            "test:", "\n",
-                                            "  adapter: postgresql", "\n",
-                                            "  encoding: unicode", "\n",
-                                            "  database: buster_test", "\n",
-                                            "  host: localhost", "\n",
-                                            "  username: busterapp", "\n",
-                                            "  password: password", "\n"
-                                           ])
-  netrc_content = AwsTemplate.join ([
-                                     "machine api.heroku.com", "\n",
-                                     "  login ", heroku_email_param.get_reference, "\n",
-                                     "  password ", heroku_key_param.get_reference, "\n",
-                                     "machine git.heroku.com", "\n",
-                                     "  login ", heroku_email_param.get_reference, "\n",
-                                     "  password ", heroku_key_param.get_reference, "\n"
-                                    ])
-  ec2_config = AwsCloudFormationInit.new
-  ec2_config.add_config(
-                        :files => [{
-                                     :content => database_yml_content,
-                                     :location => '/home/ubuntu/bustr/config/database.yml'
-                                   },
-                                   {
-                                     :content => netrc_content,
-                                     :location => '/home/ubuntu/.netrc'
-                                   }],
-                        :services => [
-                                      {
-                                        :name => 'sysvint',
-                                        'codedeploy-agent' => {
-                                          :enabled => true,
-                                          :ensureRunning => true
-                                        }
-                                      }
-                                     ]
-                        )
-  
+
+  # Set up RDS database
+  rds = AwsRdsInstance.new
+  rds_sg = rds.add_security_group sg
+  rds_endpoint = rds.get_att('Endpoint.Address')
+  rds_port = rds.get_att('Endpoint.Port')
+    
   # ec2 instance
   ec2 = AwsEc2Instance.new
   ec2.add_security_group sg
@@ -523,16 +482,16 @@ def buster_dev_template
   ec2.add_property :KeyName, ssh_key_param.get_reference
   ec2.add_property :Tags, codedeploy_tags
   ec2.add_property :IamInstanceProfile, instance_profile.get_reference
-  # add stuff for cfn init
-  ec2.metadata = ec2_config.to_h
+
   # install dependencies and ruby/rvm/rails
-  ec2.commands += [
+  cfn_init_commands = []
+  cfn_init_commands += [
                    "export HOME=`pwd`" ,"\n",
                    "wget --no-check-certificate https://raw.githubusercontent.com/bcwik9/ScriptsNStuff/master/setup_dev_server.sh && bash setup_dev_server.sh ", packages_param.get_reference, "\n",
                    "sudo apt-get install -y libqt4-dev nodejs build-essential tcl8.5 libpq-dev qt5-default libqt5webkit5-dev awscli libsqlite3-dev ruby2.0", "\n"
                   ]
   # install redis
-  ec2.commands += [
+  cfn_init_commands += [
                    "sudo apt-get install -y build-essential tcl8.5", "\n",
                    "wget http://download.redis.io/releases/redis-2.8.9.tar.gz", "\n",
                    "tar xzf redis-2.8.9.tar.gz", "\n",
@@ -543,7 +502,7 @@ def buster_dev_template
                    "sudo ./install_server.sh", "\n"
                   ]
   # set up postgres with a user
-  ec2.commands += [
+  cfn_init_commands += [
                    "echo \"deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main\" > /etc/apt/sources.list.d/pgdg.list", "\n",
                    "wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -", "\n",
                    "sudo apt-get update", "\n",
@@ -551,7 +510,7 @@ def buster_dev_template
                    "sudo -iu postgres psql -c \"create role busterapp with superuser createdb login password 'password';\"", "\n"
                   ]
   #install codedeploy agent
-  ec2.commands += [
+  cfn_init_commands += [
                    "sudo aws s3 cp s3://aws-codedeploy-",
                    AwsTemplate.region_reference,
                    "/latest/install /tmp/ --region ",
@@ -560,7 +519,7 @@ def buster_dev_template
                    'sudo -i /tmp/install auto', "\n"
                   ]
   # clone git repo
-  ec2.commands += [
+  cfn_init_commands += [
                    "cd /home/ubuntu", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo git clone -b ", git_branch_param.get_reference,
                    " https://", github_param.get_reference,
@@ -568,6 +527,7 @@ def buster_dev_template
                   ]
   # commands to install cfn-init
   ec2.commands += [
+                   "export HOME=`pwd`" ,"\n",
                    'sudo apt-get install -y python-setuptools', "\n",
                    'easy_install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz', "\n"
                   ]
@@ -581,36 +541,39 @@ def buster_dev_template
                    ec2.logical_id, "\n"
                   ]
   # use rvm to install/use correct ruby version
-  ec2.commands += [
+  cfn_init_commands += [
                    "bash --login /usr/local/rvm/bin/rvm install 2.2.1", "\n",
                    "export PATH=\"$PATH:/usr/local/rvm/bin/rvm\"", "\n",
                    "bash --login /usr/local/rvm/bin/rvm use 2.2.1", "\n"
                   ]
   # set up database initially
-  ec2.commands += [
+  cfn_init_commands += [
                    "cd bustr", "\n",
                    "cp config/application.example.yml config/application.yml", "\n",
                    'sed -i \'s/config\.action_controller\.asset_host/#config\.action_controller\.asset_host/\' config/environments/development.rb', "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n"
                   ]
   # pull in production data from heroku
-  ec2.commands += [
+  cfn_init_commands += [
+                   "cat /home/ubuntu/.pgpass", "\n",
+                   "cat /home/ubuntu/database.yml", "\n",
                    "wget -qO- https://toolbelt.heroku.com/install-ubuntu.sh | sh", "\n",
-                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:test:prepare assets:precompile", "\n",
+                   "mv /home/ubuntu/database.yml /home/ubuntu/bustr/config/", "\n",
+                   "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare assets:precompile", "\n",
                    #"heroku pg:pull DATABASE_URL buster_prod --app buster-prod", "\n",
                    "sudo -iu postgres psql -c \"create role ", heroku_database_user_param.get_reference ," with superuser login createdb password NULL;\"", "\n",
-                   "sudo -iu postgres pg_dump -Fc -d ", heroku_database_url_param.get_reference," > ~postgres/prod_dump.sql", "\n",
-                   "sudo -iu postgres pg_restore prod_dump.sql -d buster_prod", "\n",
+                   "sudo pg_dump -Fc -d ", heroku_database_url_param.get_reference," > prod_dump.sql", "\n",
+                   "sudo pg_restore --verbose --clean --no-acl --no-owner -h ", rds_endpoint, " -U ", rds.username," -d buster_prod prod_dump.sql", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo rake db:migrate", "\n"
                   ]
   # run sidekiq/rails server
-  ec2.commands += [
+  cfn_init_commands += [
                    "sudo chmod -R 777 /home/ubuntu/bustr", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle exec sidekiq -d -L log/sidekiq.log", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle exec rails server -b 0.0.0.0 -d -p 80 > log/server.log", "\n"
                   ]
   # notify that everything is done
-  ec2.commands += [
+  cfn_init_commands += [
                    "curl -X PUT -H 'Content-Type:' --data-binary '{\"Status\" : \"SUCCESS\",",
                    "\"Reason\" : \"Server is ready\",",
                    "\"UniqueId\" : \"#{ec2.logical_id}\",",
@@ -618,12 +581,89 @@ def buster_dev_template
                    "\"", handle.get_reference,"\"\n"
                   ]
 
+  # commands to execute when cfn init runs
+  database_yml_content = AwsTemplate.join ([
+                                            "development:", "\n",
+                                            "  adapter: postgresql", "\n",
+                                            "  encoding: unicode", "\n",
+                                            "  database: buster_prod", "\n",
+                                            "  host: ", rds_endpoint, "\n",
+                                            "  username: ", rds.username, "\n",
+                                            "  password: ", rds.password, "\n",
+                                            "\n",
+                                            "test:", "\n",
+                                            "  adapter: postgresql", "\n",
+                                            "  encoding: unicode", "\n",
+                                            "  database: buster_test", "\n",
+                                            "  host: ", rds_endpoint, "\n",
+                                            "  username: ", rds.username, "\n",
+                                            "  password: ", rds.password, "\n"
+                                           ])
+  netrc_content = AwsTemplate.join ([
+                                     "machine api.heroku.com", "\n",
+                                     "  login ", heroku_email_param.get_reference, "\n",
+                                     "  password ", heroku_key_param.get_reference, "\n",
+                                     "machine git.heroku.com", "\n",
+                                     "  login ", heroku_email_param.get_reference, "\n",
+                                     "  password ", heroku_key_param.get_reference, "\n"
+                                    ])
+  pgpass_content = AwsTemplate.join ([
+                                      # buster_prod
+                                      rds_endpoint,":",
+                                      rds_port, ":",
+                                      :buster_prod, ":",
+                                      rds.username, ":",
+                                      rds.password, "\n",
+                                      # buster_test
+                                      rds_endpoint,":",
+                                      rds_port, ":",
+                                      :buster_test, ":",
+                                      rds.username, ":",
+                                      rds.password, "\n"
+                                     ])
+  ec2_config = AwsCloudFormationInit.new
+  ec2_config.add_config(
+                        :files => [{
+                                     :content => database_yml_content,
+                                     :location => '/home/ubuntu/database.yml'
+                                   },
+                                   {
+                                     :content => pgpass_content,
+                                     :location => '/root/.pgpass',
+                                     :mode => '000600'
+                                   },
+                                   {
+                                     :content => pgpass_content,
+                                     :location => '/home/ubuntu/.pgpass',
+                                     :mode => '000600'
+                                   },
+                                   {
+                                     :content => netrc_content,
+                                     :location => '/home/ubuntu/.netrc'
+                                   }],
+                        :services => [
+                                      {
+                                        :name => 'sysvint',
+                                        'codedeploy-agent' => {
+                                          :enabled => true,
+                                          :ensureRunning => true
+                                        }
+                                      }
+                                     ],
+                        :commands => [{
+                                        command: (AwsTemplate.join cfn_init_commands)
+                                      }]
+                        )
+
+  # add stuff for cfn init
+  ec2.metadata = ec2_config.to_h
+
   # associate wait condition/handle and ec2
   cond.set_handle handle
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template

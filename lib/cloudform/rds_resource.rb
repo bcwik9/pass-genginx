@@ -1,5 +1,4 @@
-require_relative 'resource'
-require_relative 'output'
+require_relative 'rds_security_group_resource'
 
 class AwsRdsInstance
   include AwsResource
@@ -20,13 +19,18 @@ class AwsRdsInstance
     @password = opt[:password] || 'password'
   end
 
-  def add_db_security_group group
+  def add_security_group group
     @properties[:DBSecurityGroups] ||= []
-    @properties[:DBSecurityGroups].push group
+    if group.type == "AWS::EC2::SecurityGroup"
+      # create a DB Security Group
+      group = AwsRdsSecurityGroup.new(ec2_security_groups: [group])
+    end
+    @properties[:DBSecurityGroups].push group.get_reference
+    return group
   end
 
   def clear_db_security_groups
-    @properties.delete :DBSecurityGroups
+    @properties[:DBSecurityGroups].clear
   end
 
   def to_h
@@ -34,8 +38,8 @@ class AwsRdsInstance
     raise "Invalid engine specified" unless VALID_ENGINES.include? @engine
 
     add_property :Engine, @engine
-    add_property :AllocatedStorage, @allocated_storage
-    add_property :DBInstanceClass, @instance_class.to_i
+    add_property :AllocatedStorage, @allocated_storage.to_i
+    add_property :DBInstanceClass, @instance_class
     add_property :MasterUsername, @username
     add_property :MasterUserPassword, @password
     super

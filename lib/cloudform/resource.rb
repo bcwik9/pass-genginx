@@ -5,7 +5,7 @@ module AwsResource
   
   attr_accessor :type, :properties, :depends_on
   
-  ALLOWED_TYPES = ["AWS::EC2::Instance", "AWS::EC2::SecurityGroup", "AWS::CloudFormation::WaitConditionHandle", "AWS::CloudFormation::WaitCondition", "AWS::Route53::RecordSetGroup", "AWS::Route53::HostedZone", "AWS::ElasticBeanstalk::Application", "AWS::ElasticBeanstalk::ApplicationVersion", "AWS::ElasticBeanstalk::ConfigurationTemplate", "AWS::ElasticBeanstalk::Environment", "AWS::ElastiCache::CacheCluster", "AWS::ElastiCache::ParameterGroup", "AWS::ElastiCache::SecurityGroupIngress", "AWS::ElastiCache::SecurityGroup", "AWS::IAM::Policy", "AWS::IAM::Role", 'AWS::IAM::InstanceProfile', 'AWS::AutoScaling::ScalingPolicy', 'AWS::CloudWatch::Alarm', 'AWS::AutoScaling::AutoScalingGroup', 'AWS::ElasticLoadBalancing::LoadBalancer']
+  ALLOWED_TYPES = ["AWS::EC2::Instance", "AWS::EC2::SecurityGroup", "AWS::CloudFormation::WaitConditionHandle", "AWS::CloudFormation::WaitCondition", "AWS::Route53::RecordSetGroup", "AWS::Route53::HostedZone", "AWS::ElasticBeanstalk::Application", "AWS::ElasticBeanstalk::ApplicationVersion", "AWS::ElasticBeanstalk::ConfigurationTemplate", "AWS::ElasticBeanstalk::Environment", "AWS::ElastiCache::CacheCluster", "AWS::ElastiCache::ParameterGroup", "AWS::ElastiCache::SecurityGroupIngress", "AWS::ElastiCache::SecurityGroup", "AWS::IAM::Policy", "AWS::IAM::Role", 'AWS::IAM::InstanceProfile', 'AWS::AutoScaling::ScalingPolicy', 'AWS::CloudWatch::Alarm', 'AWS::AutoScaling::AutoScalingGroup', 'AWS::ElasticLoadBalancing::LoadBalancer', 'AWS::RDS::DBInstance', 'AWS::RDS::DBSecurityGroup']
   
   def initialize opt
     raise "Unsupported type: #{opt[:type]}" unless ALLOWED_TYPES.include? opt[:type]
