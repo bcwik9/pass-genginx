@@ -470,7 +470,7 @@ def buster_dev_template
 
   # Set up RDS database
   rds = AwsRdsInstance.new
-  #rds_sg = rds.add_security_group sg
+  rds_sg = rds.add_security_group sg
   rds_endpoint = rds.get_att('Endpoint.Address')
   rds_port = rds.get_att('Endpoint.Port')
     
@@ -555,12 +555,9 @@ def buster_dev_template
                   ]
   # pull in production data from heroku
   cfn_init_commands += [
-                   "cat /home/ubuntu/.pgpass", "\n",
-                   "cat /home/ubuntu/database.yml", "\n",
                    "wget -qO- https://toolbelt.heroku.com/install-ubuntu.sh | sh", "\n",
                    "mv /home/ubuntu/database.yml /home/ubuntu/bustr/config/", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare assets:precompile", "\n",
-                   #"heroku pg:pull DATABASE_URL buster_prod --app buster-prod", "\n",
                    "sudo -iu postgres psql -c \"create role ", heroku_database_user_param.get_reference ," with superuser login createdb password NULL;\"", "\n",
                    "sudo pg_dump -Fc -d ", heroku_database_url_param.get_reference," > prod_dump.sql", "\n",
                    "sudo pg_restore --verbose --clean --no-acl --no-owner -h ", rds_endpoint, " -U ", rds.username," -d buster_prod prod_dump.sql", "\n",
@@ -663,7 +660,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template
