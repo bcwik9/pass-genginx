@@ -31,7 +31,7 @@ template.add_resource ec2_instance
 security_group = AwsSecurityGroup.new
 
 # We'll be testing a Rails app on port 3000, so let's open that as well
-security_group.add_access 3000
+security_group.add_inbound_access 3000
 
 # Add the security group to the template
 template.add_resource security_group

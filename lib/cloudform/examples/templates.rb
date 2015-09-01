@@ -475,12 +475,12 @@ def buster_dev_template
   
   # basic security group with ports 22, 80, and 443 open by default
   sg = AwsSecurityGroup.new
-  sg.add_access(:from => 3000) # also add 3000 for ruby development
-  sg.add_access(:from => 1080) # also add 1080 for mailcatcher
+  sg.add_inbound_access(:from => 3000) # also add 3000 for ruby development
+  sg.add_inbound_access(:from => 1080) # also add 1080 for mailcatcher
 
   # Set up RDS database
   rds = AwsRdsInstance.new
-  rds.add_db_security_group sg
+  rds_sg = rds.add_db_security_group sg
   rds_endpoint = rds.get_att('Endpoint.Address')
   rds_port = rds.get_att('Endpoint.Port')
     
@@ -670,7 +670,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template
