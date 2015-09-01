@@ -22,7 +22,7 @@ class AwsRdsInstance
     add_property :StorageType, opt[:storage_type] || 'gp2'
   end
 
-  def add_security_group group
+  def add_db_security_group group
     @properties[:DBSecurityGroups] ||= []
     if group.type == "AWS::EC2::SecurityGroup"
       # create a DB Security Group
@@ -33,7 +33,16 @@ class AwsRdsInstance
   end
 
   def clear_db_security_groups
-    @properties[:DBSecurityGroups].clear
+    @properties.delete :DBSecurityGroups
+  end
+
+  def add_vpc_security_group group
+    @properties[:VPCSecurityGroups] ||= []
+    @properties[:VPCSecurityGroups].push group.get_reference
+  end
+
+  def clear_vpc_security_groups
+    @properties.delete :VPCSecurityGroups
   end
 
   def to_h

@@ -21,6 +21,16 @@ require_relative '../elb_balancer_resource'
 require_relative '../cloudwatch_alarm_resource'
 require_relative '../rds_resource'
 require_relative '../rds_security_group_resource'
+require_relative '../vpc_resource'
+require_relative '../subnet_resource'
+require_relative '../route_table_resource'
+require_relative '../route_resource'
+require_relative '../internet_gateway_resource'
+require_relative '../vpc_gateway_attachment_resource'
+require_relative '../network_acl_resource'
+require_relative '../network_acl_entry_resource'
+require_relative '../subnet_network_acl_association_resource'
+require_relative '../rds_subnet_group_resource'
 
 # a simple ec2 server with security group
 # asks for a SSH key as only parameter
@@ -470,7 +480,7 @@ def buster_dev_template
 
   # Set up RDS database
   rds = AwsRdsInstance.new
-  rds_sg = rds.add_security_group sg
+  rds.add_db_security_group sg
   rds_endpoint = rds.get_att('Endpoint.Address')
   rds_port = rds.get_att('Endpoint.Port')
     
@@ -660,7 +670,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template
