@@ -470,7 +470,7 @@ def buster_dev_template
 
   # Set up RDS database
   rds = AwsRdsInstance.new
-  rds_sg = rds.add_security_group sg
+  #rds_sg = rds.add_security_group sg
   rds_endpoint = rds.get_att('Endpoint.Address')
   rds_port = rds.get_att('Endpoint.Port')
     
@@ -663,7 +663,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template

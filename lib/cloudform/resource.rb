@@ -21,8 +21,12 @@ module AwsResource
 
   def add_property key, value
     raise "Must specify valid key and value" if key.nil? or key.empty? or value.nil?
-    new_key = AwsTemplate.capitalize_symbol key
-    @properties[new_key] = value
+    @properties[AwsTemplate.capitalize_symbol key] = value
+  end
+
+  def get_property key
+    raise "Must specify key" if key.nil? or key.empty?
+    @properties[AwsTemplate.capitalize_symbol key]
   end
 
   def to_h
