@@ -474,15 +474,17 @@ def buster_dev_template
   vpc = AwsVpc.new
   internet_gateway = AwsInternetGateway.new
   gateway_attachment = AwsVpcGatewayAttachment.new(vpc: vpc, gateway: internet_gateway)
-  subnet_1 = AwsSubnet.new(vpc: vpc)
-  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet_2')
+  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1')
+  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet2')
   route_table = AwsRouteTable.new(vpc: vpc)
   route = AwsRoute.new(route_table: route_table)
   route.set_gateway internet_gateway
+  route.depends_on  = gateway_attachment.logical_id
   subnet_association = AwsSubnetRouteTableAssociation.new(subnet: subnet_1, route_table: route_table)
   network_acl = AwsNetworkAcl.new(vpc: vpc)
-  inbound_acl = AwsNetworkAclEntry.new(network_acl: network_acl, outbound_traffic: false)
-  outbound_acl = AwsNetworkAclEntry.new(network_acl: network_acl, outbound_traffic: true)
+  inbound_acl = AwsNetworkAclEntry.new(network_acl: network_acl, outbound_traffic: false, logical_id: 'inbound')
+  outbound_acl = AwsNetworkAclEntry.new(network_acl: network_acl, outbound_traffic: true, logical_id: 'outbound')
+  subnet_acl_association = AwsSubnetNetworkAclAssociation.new(network_acl: network_acl, subnet: subnet_1)
 
   # create new wait handle and wait condition (20 minute timeout)
   handle = AwsWaitHandle.new
@@ -492,12 +494,16 @@ def buster_dev_template
   sg = AwsSecurityGroup.new
   sg.add_inbound_access(:from => 3000) # also add 3000 for ruby development
   sg.add_inbound_access(:from => 1080) # also add 1080 for mailcatcher
+  sg.add_property :VpcId, vpc.get_reference
 
   # Set up RDS database
   rds = AwsRdsInstance.new
-  rds_sg = rds.add_db_security_group sg
+  #rds_sg = rds.add_db_security_group sg
+  rds.add_vpc_security_group sg
   rds_endpoint = rds.get_att('Endpoint.Address')
   rds_port = rds.get_att('Endpoint.Port')
+  rds_subnet = AwsRdsDbSubnetGroup.new(subnets: [subnet_1, subnet_2])
+  rds.add_db_subnet rds_subnet
     
   # ec2 instance
   ec2 = AwsEc2Instance.new
@@ -507,6 +513,8 @@ def buster_dev_template
   ec2.add_property :KeyName, ssh_key_param.get_reference
   ec2.add_property :Tags, codedeploy_tags
   ec2.add_property :IamInstanceProfile, instance_profile.get_reference
+  ec2.add_property :SubnetId, subnet_1.get_reference
+  ec2.depends_on = gateway_attachment.logical_id
 
   # install dependencies and ruby/rvm/rails
   cfn_init_commands = []
@@ -685,7 +693,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl, subnet_acl_association, rds_subnet ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template

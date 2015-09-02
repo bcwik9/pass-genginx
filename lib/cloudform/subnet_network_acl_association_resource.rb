@@ -7,7 +7,7 @@ class AwsSubnetNetworkAclAssociation
   attr_accessor :subnet, :network_acl
   
   def initialize opt={}
-    opt[:type] = "AWS::EC2::SubnetNetworkAssociation"
+    opt[:type] = "AWS::EC2::SubnetNetworkAclAssociation"
     super opt
     @subnet = opt[:subnet]
     @network_acl = opt[:network_acl]

@@ -4,7 +4,7 @@ require_relative 'output'
 class AwsNetworkAclEntry
   include AwsResource
   
-  attr_accessor :cidr_block, :outbound_traffic, :network_acl, :protocol, :rule_action, :rule_number, 
+  attr_accessor :cidr_block, :outbound_traffic, :network_acl, :protocol, :rule_action, :rule_number
   
   def initialize opt={}
     opt[:type] = "AWS::EC2::NetworkAclEntry"
@@ -26,7 +26,7 @@ class AwsNetworkAclEntry
 
   def to_h
     add_property :CidrBlock, @cidr_block
-    add_property :NetworkAcl, @network_acl.get_reference
+    add_property :NetworkAclId, @network_acl.get_reference
     add_property :RuleNumber, @rule_number
     add_property :RuleAction, @rule_action
     add_property :Protocol, @protocol

@@ -45,6 +45,10 @@ class AwsRdsInstance
     @properties.delete :VPCSecurityGroups
   end
 
+  def add_db_subnet subnet
+    add_property :DBSubnetGroupName, subnet.get_reference
+  end
+
   def to_h
     raise "Allocated storage must be a minimum of 5GB" if @allocated_storage.to_i < 5
     raise "Invalid engine specified" unless VALID_ENGINES.include? @engine
