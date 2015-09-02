@@ -90,7 +90,10 @@ class AwsTemplate
   # essentially merges a list of hashes
   def prepare_section arr
     ret = {}
-    arr.each { |i| ret.merge! i.to_h }
+    arr.each do |i|
+      raise "Conflicting logical id found: #{i.logical_id}" if ret.has_key? i.logical_id
+      ret.merge! i.to_h
+    end
     return ret
   end
     
