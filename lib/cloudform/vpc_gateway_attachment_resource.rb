@@ -14,7 +14,8 @@ class AwsVpcGatewayAttachment
   end
 
   def to_h
-    raise 'Must specify an associated VPC' if @vpc.nil or @vpc.empty?
+    raise 'Must specify an associated VPC' if @vpc.nil?
+    raise 'Must specify an associated gateway' if @gateway.nil?
     add_property :VpcId, @vpc.get_reference
     if @gateway.type == 'AWS::EC2::VPNGateway'
       add_property :VpnGatewayId, @gateway.get_reference

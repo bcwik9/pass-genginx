@@ -30,6 +30,7 @@ require_relative '../vpc_gateway_attachment_resource'
 require_relative '../network_acl_resource'
 require_relative '../network_acl_entry_resource'
 require_relative '../subnet_network_acl_association_resource'
+require_relative '../subnet_route_table_association_resource'
 require_relative '../rds_subnet_group_resource'
 
 # a simple ec2 server with security group
@@ -468,6 +469,20 @@ def buster_dev_template
                                        :action => ["autoscaling:CompleteLifecycleAction", "autoscaling:DeleteLifecycleHook", "autoscaling:DescribeLifecycleHooks", "autoscaling:DescribeAutoScalingGroups", "autoscaling:PutLifecycleHook", "autoscaling:RecordLifecycleActionHeartbeat", "ec2:Describe*"]
                                        )
   codedeploy_policy.add_role codedeploy_role
+  
+  # create a VPC
+  vpc = AwsVpc.new
+  internet_gateway = AwsInternetGateway.new
+  gateway_attachment = AwsVpcGatewayAttachment.new(vpc: vpc, gateway: internet_gateway)
+  subnet_1 = AwsSubnet.new(vpc: vpc)
+  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet_2')
+  route_table = AwsRouteTable.new(vpc: vpc)
+  route = AwsRoute.new(route_table: route_table)
+  route.set_gateway internet_gateway
+  subnet_association = AwsSubnetRouteTableAssociation.new(subnet: subnet_1, route_table: route_table)
+  network_acl = AwsNetworkAcl.new(vpc: vpc)
+  inbound_acl = AwsNetworkAclEntry.new(network_acl: network_acl, outbound_traffic: false)
+  outbound_acl = AwsNetworkAclEntry.new(network_acl: network_acl, outbound_traffic: true)
 
   # create new wait handle and wait condition (20 minute timeout)
   handle = AwsWaitHandle.new
@@ -670,7 +685,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, rds_sg, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template

@@ -1,7 +1,7 @@
 require_relative 'resource'
 require_relative 'output'
 
-class AwsNetworkAcl
+class AwsSubnetNetworkAclAssociation
   include AwsResource
   
   attr_accessor :subnet, :network_acl
@@ -14,8 +14,8 @@ class AwsNetworkAcl
   end
 
   def to_h
-    raise 'Must specify an associated subnet' if @subnet.nil or @subnet.empty?
-    raise 'Must specify an associated network acl' if @network_acl.nil or @network_acl.empty?
+    raise 'Must specify an associated subnet' if @subnet.nil?
+    raise 'Must specify an associated network acl' if @network_acl.nil?
     add_property :SubnetId, @subnet.get_reference
     add_property :NetworkAclId, @network_acl.get_reference
     super

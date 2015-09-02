@@ -13,13 +13,13 @@ class AwsRoute
     @route_table = opt[:route_table]
   end
 
-  def add_gateway gateway
+  def set_gateway gateway
     add_property :GatewayId, gateway.get_reference
   end
 
   def to_h
-    raise 'Must specify a route table' if @route_table.nil? or @route_table.empty?
-    add_proprty :RouteTableId, @route_table.get_reference
+    raise 'Must specify a route table' if @route_table.nil?
+    add_property :RouteTableId, @route_table.get_reference
     add_property :DestinationCidrBlock, @destination_cidr_block
     super
   end

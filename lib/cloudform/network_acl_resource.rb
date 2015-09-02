@@ -13,7 +13,7 @@ class AwsNetworkAcl
   end
 
   def to_h
-    raise 'Must specify an associated VPC' if @vpc.nil or @vpc.empty?
+    raise 'Must specify an associated VPC' if @vpc.nil?
     add_property :VpcId, @vpc.get_reference
     super
   end
