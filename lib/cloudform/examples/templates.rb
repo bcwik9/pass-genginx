@@ -495,8 +495,8 @@ def buster_dev_template
   sg = AwsSecurityGroup.new
   sg.add_inbound_access(:from => 3000) # also add 3000 for ruby development
   sg.add_inbound_access(:from => 1080) # also add 1080 for mailcatcher
-  sg.add_inbound_access(from: 5432, source_security_group: sg) # allow access to RDS default port
-  sg.add_property :VpcId, vpc.get_reference
+  sg.associate_vpc vpc
+  rds_access = AwsSecurityGroupAccess.generate_inbound_access(security_group: sg, from: 5432, source: sg) # allow access to RDS default port
 
   # Set up RDS database
   rds = AwsRdsInstance.new
@@ -696,7 +696,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl, subnet_acl_association, rds_subnet ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl, subnet_acl_association, rds_subnet, rds_access ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template

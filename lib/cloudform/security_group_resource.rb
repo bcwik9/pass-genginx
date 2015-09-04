@@ -1,4 +1,3 @@
-require_relative 'resource'
 require_relative 'security_group_access'
 
 class AwsSecurityGroup
@@ -29,29 +28,18 @@ class AwsSecurityGroup
     return ret
   end
 
+  def associate_vpc vpc
+    add_property :VpcId, vpc.get_reference
+  end
+
   # returns a hash representation of access specification for a security group
   def generate_access opt={}
     opt[:security_group] = self
-    ret = AwsSecurityGroupAccess.generate_inbound_access(opt).properties
-    ret.delete :GroupId #isn't used
-    return ret
-
-    sanitize_access opt
-    ret = {
-      :IpProtocol => opt[:protocol],
-      :FromPort => opt[:from],
-      :ToPort => opt[:to],
-    }
-    # check to see if we're using another security group as source
-    if opt[:source_security_group]
-      raise 'Use AwsSecurityGroupAccess to allow a security group to communicate with itself' if @logical_id == opt[:source_security_group].logical_id
-      ret[:SourceSecurityGroupId] = opt[:source_security_group]
-    elsif opt[:destination_security_group]
-      ret[:DestinationSecurityGroupId] = opt[:destination_security_group]
-    else
-      ret[:CidrIp] = opt[:ip]
-    end
-    return ret
+    raise 'Use AwsSecurityGroupAccess to allow a security group to communicate with itself' if  self == opt[:source]
+    new_access = AwsSecurityGroupAccess.generate_inbound_access(opt)
+    new_access.to_h
+    new_access.properties.delete(:GroupId)
+    return new_access.properties
   end
   
   # add access to specific port ranges

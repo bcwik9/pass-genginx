@@ -39,8 +39,8 @@ class AwsSecurityGroupAccess
   end
 
   def set_source
-    @source ||= '0.0.0.0\0'
-    if @source.class == String.class
+    @source ||= '0.0.0.0/0'
+    if @source.class == String
       add_property :CidrIp, @source
     elsif @type == "AWS::EC2::SecurityGroupIngress"
       add_property :SourceSecurityGroupId, @source.get_reference

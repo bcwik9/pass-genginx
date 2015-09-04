@@ -10,7 +10,7 @@ class AwsNetworkAclEntry
     opt[:type] = "AWS::EC2::NetworkAclEntry"
     super opt
     @cidr_block = opt[:cidr_block] || '0.0.0.0/0'
-    @outbound_traffic = opt[:outbound_traffic] || true
+    @outbound_traffic = opt[:outbound_traffic].nil? ? true : opt[:outbound_traffic]
     @network_acl = opt[:network_acl]
     @protocol = opt[:protocol] || -1 # -1 is all ports
     @rule_action = opt[:rule_action] || 'allow'
