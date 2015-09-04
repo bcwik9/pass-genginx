@@ -11,6 +11,7 @@ class AwsSubnet
     super opt
     @cidr_block = opt[:cidr_block] || '10.0.0.0/24'
     @vpc = opt[:vpc]
+    add_property :AvailabilityZone, opt[:availability_zone] if opt[:availability_zone]
   end
 
   def set_vpc vpc

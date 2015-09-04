@@ -65,11 +65,11 @@ class AwsEc2Instance
     @properties[:UserData] = generate_userdata
     
     # link security groups
-    @properties[:SecurityGroups] = []
+    @properties[:SecurityGroups] = [] unless @security_groups.empty?
     @security_groups.each do |sg|
       @properties[:SecurityGroups].push sg.get_reference
     end
-
+    
     ret = super
 
     ret[@logical_id][:Metadata] = @metadata unless @metadata.empty?

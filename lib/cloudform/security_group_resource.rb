@@ -1,4 +1,5 @@
 require_relative 'resource'
+require_relative 'security_group_access'
 
 class AwsSecurityGroup
   include AwsResource
@@ -30,6 +31,11 @@ class AwsSecurityGroup
 
   # returns a hash representation of access specification for a security group
   def generate_access opt={}
+    opt[:security_group] = self
+    ret = AwsSecurityGroupAccess.generate_inbound_access(opt).properties
+    ret.delete :GroupId #isn't used
+    return ret
+
     sanitize_access opt
     ret = {
       :IpProtocol => opt[:protocol],
@@ -38,6 +44,7 @@ class AwsSecurityGroup
     }
     # check to see if we're using another security group as source
     if opt[:source_security_group]
+      raise 'Use AwsSecurityGroupAccess to allow a security group to communicate with itself' if @logical_id == opt[:source_security_group].logical_id
       ret[:SourceSecurityGroupId] = opt[:source_security_group]
     elsif opt[:destination_security_group]
       ret[:DestinationSecurityGroupId] = opt[:destination_security_group]
@@ -90,17 +97,6 @@ class AwsSecurityGroup
     add_property :SecurityGroupIngress, @inbound_ports unless @inbound_ports.empty?
     add_property :SecurityGroupEgress, @outbound_ports unless @outbound_ports.empty?
     super
-  end
-
-  private
-
-  # ensures that all necessary params are present when specifying access
-  def sanitize_access opt={}
-    raise "Must specify an option hash" unless opt.class == Hash
-    raise "Must specify a port" unless opt[:from]
-    opt[:to] = opt[:from] unless opt[:to]
-    opt[:protocol] = 'tcp' unless opt[:protocol]
-    opt[:ip] = '0.0.0.0/0' unless opt[:ip]
   end
 
 end

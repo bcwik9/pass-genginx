@@ -32,6 +32,7 @@ require_relative '../network_acl_entry_resource'
 require_relative '../subnet_network_acl_association_resource'
 require_relative '../subnet_route_table_association_resource'
 require_relative '../rds_subnet_group_resource'
+require_relative '../security_group_access'
 
 # a simple ec2 server with security group
 # asks for a SSH key as only parameter
@@ -474,8 +475,8 @@ def buster_dev_template
   vpc = AwsVpc.new
   internet_gateway = AwsInternetGateway.new
   gateway_attachment = AwsVpcGatewayAttachment.new(vpc: vpc, gateway: internet_gateway)
-  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1')
-  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet2')
+  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1', availability_zone: 'us-east-1a')
+  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet2', availability_zone: 'us-east-1d')
   route_table = AwsRouteTable.new(vpc: vpc)
   route = AwsRoute.new(route_table: route_table)
   route.set_gateway internet_gateway
@@ -494,6 +495,7 @@ def buster_dev_template
   sg = AwsSecurityGroup.new
   sg.add_inbound_access(:from => 3000) # also add 3000 for ruby development
   sg.add_inbound_access(:from => 1080) # also add 1080 for mailcatcher
+  sg.add_inbound_access(from: 5432, source_security_group: sg) # allow access to RDS default port
   sg.add_property :VpcId, vpc.get_reference
 
   # Set up RDS database
@@ -507,13 +509,14 @@ def buster_dev_template
     
   # ec2 instance
   ec2 = AwsEc2Instance.new
-  ec2.add_security_group sg
+  #ec2.add_security_group sg
   ec2.set_image_id "ami-d05e75b8"
   ec2.set_instance_type "t2.small"
   ec2.add_property :KeyName, ssh_key_param.get_reference
   ec2.add_property :Tags, codedeploy_tags
   ec2.add_property :IamInstanceProfile, instance_profile.get_reference
   ec2.add_property :SubnetId, subnet_1.get_reference
+  ec2.add_property :SecurityGroupIds, [sg.get_reference]
   ec2.depends_on = gateway_attachment.logical_id
 
   # install dependencies and ruby/rvm/rails
