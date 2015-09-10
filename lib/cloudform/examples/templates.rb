@@ -592,7 +592,7 @@ def buster_dev_template
   # pull in production data from heroku
   cfn_init_commands += [
                    "wget -qO- https://toolbelt.heroku.com/install-ubuntu.sh | sh", "\n",
-                   "mv /home/ubuntu/database.yml /home/ubuntu/bustr/config/", "\n",
+                   "cp /home/ubuntu/database.yml /home/ubuntu/bustr/config/", "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo rake db:create db:migrate db:test:prepare assets:precompile", "\n",
                    "sudo -iu postgres psql -c \"create role ", heroku_database_user_param.get_reference ," with superuser login createdb password NULL;\"", "\n",
                    "sudo pg_dump -Fc -d ", heroku_database_url_param.get_reference," > prod_dump.sql", "\n",
