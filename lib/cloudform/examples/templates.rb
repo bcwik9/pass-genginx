@@ -472,11 +472,11 @@ def buster_dev_template
   codedeploy_policy.add_role codedeploy_role
   
   # create a VPC
-  vpc = AwsVpc.new cidr_block: '172.31.0.0/16'
+  vpc = AwsVpc.new
   internet_gateway = AwsInternetGateway.new
   gateway_attachment = AwsVpcGatewayAttachment.new(vpc: vpc, gateway: internet_gateway)
-  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1', availability_zone: 'us-east-1a', cidr_block: '172.31.0.0/20')
-  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '172.31.16.0/20', logical_id: 'subnet2', availability_zone: 'us-east-1d')
+  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1', availability_zone: 'us-east-1a')
+  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet2', availability_zone: 'us-east-1d')
   route_table = AwsRouteTable.new(vpc: vpc)
   route = AwsRoute.new(route_table: route_table)
   route.set_gateway internet_gateway
