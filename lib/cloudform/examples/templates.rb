@@ -472,11 +472,11 @@ def buster_dev_template
   codedeploy_policy.add_role codedeploy_role
   
   # create a VPC
-  vpc = AwsVpc.new
+  vpc = AwsVpc.new cidr_block: '172.31.0.0/16'
   internet_gateway = AwsInternetGateway.new
   gateway_attachment = AwsVpcGatewayAttachment.new(vpc: vpc, gateway: internet_gateway)
-  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1', availability_zone: 'us-east-1a')
-  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '10.0.1.0/24', logical_id: 'subnet2', availability_zone: 'us-east-1d')
+  subnet_1 = AwsSubnet.new(vpc: vpc, logical_id: 'subnet1', availability_zone: 'us-east-1a', cidr_block: '172.31.0.0/20')
+  subnet_2 = AwsSubnet.new(vpc: vpc, cidr_block: '172.31.16.0/20', logical_id: 'subnet2', availability_zone: 'us-east-1d')
   route_table = AwsRouteTable.new(vpc: vpc)
   route = AwsRoute.new(route_table: route_table)
   route.set_gateway internet_gateway
@@ -585,7 +585,7 @@ def buster_dev_template
   # set up database initially
   cfn_init_commands += [
                    "cd bustr", "\n",
-                   "cp config/application.example.yml config/application.yml", "\n",
+                   "cp config/application.yml.example config/application.yml", "\n",
                    'sed -i \'s/config\.action_controller\.asset_host/#config\.action_controller\.asset_host/\' config/environments/development.rb', "\n",
                    "bash --login /usr/local/rvm/bin/rvmsudo bundle install", "\n"
                   ]
@@ -696,7 +696,7 @@ def buster_dev_template
   cond.depends_on = ec2.logical_id
 
   # add resources and parameter to our template
-  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl, subnet_acl_association, rds_subnet, rds_access ]
+  template.add_resources [ec2, sg, cond, handle, instance_role, instance_profile, instance_policy, codedeploy_role, codedeploy_policy, rds, vpc, internet_gateway, gateway_attachment, subnet_1, subnet_2, route_table, route, network_acl, inbound_acl, outbound_acl, subnet_acl_association, rds_subnet, rds_access, subnet_association ]
   template.add_parameters [ssh_key_param, packages_param, github_param, heroku_key_param, heroku_database_user_param, heroku_database_url_param, git_branch_param, heroku_email_param]
   
   return template
