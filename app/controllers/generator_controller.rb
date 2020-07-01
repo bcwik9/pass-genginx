@@ -11,9 +11,9 @@ class GeneratorController < ApplicationController
     #template = basic_ec2_with_sg_template
     #template = ec2_codedeploy_template
     #template = autoscaling_with_codedeploy_template
-    template = buster_dev_template
-    render :json => template.to_json
-    return
+    #template = buster_dev_template
+    #render :json => template.to_json
+    #return
     
     # check github url param
     github_clone_url = params[:github_repo].first
